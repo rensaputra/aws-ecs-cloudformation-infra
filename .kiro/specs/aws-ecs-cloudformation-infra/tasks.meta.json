@@ -1,0 +1,271 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. Set up repository skeleton and shared test harness scaffolding": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757479119
+      }
+    ],
+    "2.1 Define VPC parameters with validation": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757479288
+      }
+    ],
+    "2.2 Define VPC, IGW, subnets, NAT gateways, and route tables": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757479355
+      }
+    ],
+    "2.3 Define env-prefixed VPC exports": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757479428
+      }
+    ],
+    "3.1 Define SG parameters with validation": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757479522
+      }
+    ],
+    "3.2 Define the two security groups, ingress rules, and VPC import": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757479600
+      }
+    ],
+    "3.3 Define env-prefixed SG exports": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757479664
+      }
+    ],
+    "4.1 Define ALB parameters with validation": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757479763
+      }
+    ],
+    "4.2 Define the ALB, listeners, and imports": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757479819
+      }
+    ],
+    "4.3 Define env-prefixed ALB exports": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757479900
+      }
+    ],
+    "5.1 Define cluster parameters and resources": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757479997
+      }
+    ],
+    "5.2 Define env-prefixed cluster exports": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480072
+      }
+    ],
+    "6.1 Define service parameters, `AllowedValues`, and `Rules` validation": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480130
+      }
+    ],
+    "6.2 Define task definition, service, Service Connect, target group, and autoscaling with imports": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480249
+      }
+    ],
+    "7. Checkpoint - templates lint clean": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480350
+      }
+    ],
+    "8.1 Author dev parameter files": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480431
+      }
+    ],
+    "8.2 Author prod parameter files": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480491
+      }
+    ],
+    "9. Author the CI validation workflow (`.github/workflows/cfn-validate.yml`)": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480574
+      }
+    ],
+    "10. Author the manual deploy workflow (`.github/workflows/deploy-infra.yml`)": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480647
+      }
+    ],
+    "11. Author the dispatch deploy workflow (`.github/workflows/deploy-dispatch.yml`)": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480711
+      }
+    ],
+    "12. Checkpoint - artifacts complete, workflows reviewed": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480774
+      }
+    ],
+    "13. Implement the shared artifact-parsing model for the test harness": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480864
+      }
+    ],
+    "14.1 Property 1 test — subnet CIDR layout non-overlapping and complete per AZ": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757480947
+      }
+    ],
+    "14.2 Property 2 test — every import resolves to a produced export": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481024
+      }
+    ],
+    "14.3 Property 3 test — every export name is environment-prefixed": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481094
+      }
+    ],
+    "14.4 Property 4 test — export names unique within an environment": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481147
+      }
+    ],
+    "14.5 Property 5 test — Fargate CPU/memory accepted iff valid": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481210
+      }
+    ],
+    "14.6 Property 6 test — autoscaling bounds accepted iff min <= max": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481266
+      }
+    ],
+    "14.7 Property 7 test — deployed templates have matching param files per env": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481331
+      }
+    ],
+    "14.8 Property 8 test — param-file keys correspond to declared parameters": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481400
+      }
+    ],
+    "14.9 Property 9 test — deploy order is a valid topological order": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481517
+      }
+    ],
+    "14.10 Property 10 test — dispatch workflow targets only the service stack": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481601
+      }
+    ],
+    "14.11 Property 11 test — dispatch payload validation accepts iff complete and valid": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481678
+      }
+    ],
+    "15.1 Write snapshot/synth structural-presence tests": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481735
+      }
+    ],
+    "15.2 Write edge-case parameter-validation tests": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481797
+      }
+    ],
+    "15.3 Write workflow example/control-flow tests": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481862
+      }
+    ],
+    "16. Wire local tooling and validate cross-stack export naming consistency": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481918
+      }
+    ],
+    "17. Final checkpoint - all tests pass": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757481974
+      }
+    ]
+  }
+}
