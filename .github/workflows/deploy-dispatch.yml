@@ -1,0 +1,142 @@
+# Dispatch_Workflow (.github/workflows/deploy-dispatch.yml) - Requirement 10
+#
+# Triggered by the upstream image-build repository via a repository_dispatch
+# event of type `web-app-image-pushed` after it builds and pushes the web-app
+# container image to Amazon ECR. This workflow validates the dispatch payload
+# and then updates ONLY the Web_App_Service_Stack (templates/04-ecs-service.yml)
+# for the payload environment, overriding ContainerImageUri with the payload
+# image URI. No other stack (VPC, security groups, ALB, cluster) is referenced,
+# so those layers remain unchanged (Requirements 10.1, 10.2).
+name: Deploy Web App Service (dispatch)
+
+on:
+  repository_dispatch:
+    types: [web-app-image-pushed]
+
+# OIDC short-lived credentials for AWS authentication (Requirement 10.4).
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  # IAM role assumed via OIDC. Prefer an environment-scoped role if provided,
+  # otherwise fall back to a single deploy role. Configured as a repo/org
+  # variable (not a long-lived secret).
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Validation-first job (Requirements 10.5, 10.6).
+  # Runs BEFORE any AWS authentication or stack update. Fails the whole run if
+  # the payload is incomplete or the environment is out of range, so that no
+  # update is attempted for an invalid payload.
+  # -------------------------------------------------------------------------
+  validate-payload:
+    name: Validate dispatch payload
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      environment: ${{ steps.validate.outputs.environment }}
+      image_uri: ${{ steps.validate.outputs.image_uri }}
+    steps:
+      - name: Assert payload is complete and valid
+        id: validate
+        env:
+          # Read the target environment and container image URI from the
+          # dispatch event payload (Requirement 10.3).
+          PAYLOAD_ENVIRONMENT: ${{ github.event.client_payload.environment }}
+          PAYLOAD_IMAGE_URI: ${{ github.event.client_payload.image_uri }}
+        run: |
+          set -euo pipefail
+
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+
+          # Requirement 10.6: a missing/empty required value fails the job.
+          if [ -z "${PAYLOAD_ENVIRONMENT}" ]; then
+            fail "Dispatch payload is missing a required value: 'environment'."
+          fi
+          if [ -z "${PAYLOAD_IMAGE_URI}" ]; then
+            fail "Dispatch payload is missing a required value: 'image_uri'."
+          fi
+
+          # Requirement 10.5: environment must be exactly dev or prod.
+          case "${PAYLOAD_ENVIRONMENT}" in
+            dev|prod) ;;
+            *) fail "Invalid 'environment' value '${PAYLOAD_ENVIRONMENT}'. Must be one of: dev, prod." ;;
+          esac
+
+          echo "Payload accepted: environment='${PAYLOAD_ENVIRONMENT}', image_uri='${PAYLOAD_IMAGE_URI}'."
+          echo "environment=${PAYLOAD_ENVIRONMENT}" >> "$GITHUB_OUTPUT"
+          echo "image_uri=${PAYLOAD_IMAGE_URI}" >> "$GITHUB_OUTPUT"
+
+  # -------------------------------------------------------------------------
+  # Update job - only runs after validation succeeds (needs: validate-payload).
+  # Authenticates to AWS via OIDC BEFORE any stack update (Requirements 10.4,
+  # 10.7), then updates only the service stack (Requirements 10.1, 10.2).
+  # -------------------------------------------------------------------------
+  update-service-stack:
+    name: Update Web App service stack
+    runs-on: ubuntu-latest
+    needs: validate-payload
+    timeout-minutes: 30
+    env:
+      ENVIRONMENT: ${{ needs.validate-payload.outputs.environment }}
+      IMAGE_URI: ${{ needs.validate-payload.outputs.image_uri }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Requirement 10.4 / 10.7: authenticate to AWS before any update; a
+      # failure here fails the job and no stack update is attempted.
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Requirements 10.1, 10.2: update ONLY templates/04-ecs-service.yml for
+      # the payload environment, overriding ContainerImageUri from the payload
+      # and merging the remaining values from the env-specific parameter file.
+      # No other template is referenced.
+      - name: Deploy web-app service stack (04-ecs-service only)
+        run: |
+          set -euo pipefail
+
+          ENV="${ENVIRONMENT}"
+          TEMPLATE="templates/04-ecs-service.yml"
+          PARAM_FILE="parameters/${ENV}/04-ecs-service.json"
+          STACK_NAME="${ENV}-ecs-service"
+
+          # Ensure the referenced artifacts exist before attempting the update.
+          if [ ! -f "${TEMPLATE}" ]; then
+            echo "::error::Service template not found: ${TEMPLATE}"
+            exit 1
+          fi
+          if [ ! -f "${PARAM_FILE}" ]; then
+            echo "::error::Missing parameter file for environment '${ENV}': ${PARAM_FILE}"
+            exit 1
+          fi
+
+          # Convert the flat { "Key": "Value" } parameter file into
+          # Key=Value overrides, then override ContainerImageUri with the
+          # image URI from the dispatch payload (payload wins over the file).
+          mapfile -t BASE_OVERRIDES < <(
+            jq -r 'to_entries
+                   | map(select(.key != "ContainerImageUri"))
+                   | .[]
+                   | "\(.key)=\(.value)"' "${PARAM_FILE}"
+          )
+
+          echo "Updating stack '${STACK_NAME}' from ${TEMPLATE} (env=${ENV})."
+          aws cloudformation deploy \
+            --template-file "${TEMPLATE}" \
+            --stack-name "${STACK_NAME}" \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_IAM \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              "${BASE_OVERRIDES[@]}" \
+              "ContainerImageUri=${IMAGE_URI}"

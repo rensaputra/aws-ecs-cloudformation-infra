@@ -1,0 +1,434 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  VPC networking layer (00-vpc) for the ECS Fargate platform. Provisions a
+  multi-AZ VPC with one public and one private subnet per AZ, an Internet
+  Gateway, per-AZ NAT gateways, and public/private route tables. All produced
+  values are exported as environment-prefixed cross-stack references.
+
+# ---------------------------------------------------------------------------
+# Parameters (Task 2.1) - Requirements 1.1, 1.2
+# ---------------------------------------------------------------------------
+Parameters:
+  Environment:
+    Type: String
+    Description: Deployment environment identifier; prefixes all export names.
+    AllowedValues:
+      - dev
+      - prod
+
+  VpcCidr:
+    Type: String
+    # NOTE: Requirement 1.1 states a /16-/28 range, but this template narrows it
+    # to /16-/26 because the fixed six-/29 subnet derivation below requires at
+    # least a /26 VPC (a /27 or /28 VPC cannot hold six /29 subnets, pushing
+    # derived subnets outside the VPC CIDR and violating Requirement 1.3). This
+    # narrowing was an explicit user decision.
+    Description: >-
+      IPv4 CIDR block for the VPC. Must be a syntactically valid IPv4 CIDR with
+      a prefix length between /16 and /26 inclusive.
+    # Octet regex (0-255) x4, then a prefix length restricted to 16-26.
+    AllowedPattern: >-
+      ^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])/(1[6-9]|2[0-6])$
+    ConstraintDescription: >-
+      Must be a valid IPv4 CIDR block with a prefix length between /16 and /26
+      (for example, 10.0.0.0/16).
+
+  AvailabilityZoneCount:
+    Type: Number
+    Description: Number of Availability Zones to span (2 or 3).
+    AllowedValues:
+      - 2
+      - 3
+    Default: 2
+
+# ---------------------------------------------------------------------------
+# Conditions - gate the optional 3rd-AZ resources
+# ---------------------------------------------------------------------------
+Conditions:
+  HasThirdAz: !Equals [!Ref AvailabilityZoneCount, 3]
+
+# ---------------------------------------------------------------------------
+# Resources (Task 2.2) - Requirements 1.3, 1.4, 1.5, 1.6, 1.7
+# ---------------------------------------------------------------------------
+Resources:
+
+  # --- VPC -----------------------------------------------------------------
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-vpc"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # --- Internet Gateway ----------------------------------------------------
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-igw"
+        - Key: Environment
+          Value: !Ref Environment
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  # --- Public subnets ------------------------------------------------------
+  # Subnet CIDRs are derived from the VPC CIDR with Fn::Cidr so the six blocks
+  # (3 public + 3 private) are guaranteed non-overlapping. 3 new bits => 8
+  # equal /29 blocks; we consume 6 of them. Six /29 subnets (48 addresses)
+  # require the VPC to be at least a /26, so the VpcCidr parameter above only
+  # accepts prefixes /16-/26. A smaller VPC (/27 or /28) cannot contain the
+  # derived subnets and is rejected at parameter validation time.
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !Select [0, !Cidr [!Ref VpcCidr, 6, 3]]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-public-subnet-1"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Tier
+          Value: public
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: !Select [1, !Cidr [!Ref VpcCidr, 6, 3]]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-public-subnet-2"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Tier
+          Value: public
+
+  PublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Condition: HasThirdAz
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      CidrBlock: !Select [2, !Cidr [!Ref VpcCidr, 6, 3]]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-public-subnet-3"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Tier
+          Value: public
+
+  # --- Private subnets -----------------------------------------------------
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !Select [3, !Cidr [!Ref VpcCidr, 6, 3]]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-private-subnet-1"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Tier
+          Value: private
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: !Select [4, !Cidr [!Ref VpcCidr, 6, 3]]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-private-subnet-2"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Tier
+          Value: private
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Condition: HasThirdAz
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      CidrBlock: !Select [5, !Cidr [!Ref VpcCidr, 6, 3]]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-private-subnet-3"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Tier
+          Value: private
+
+  # --- NAT gateways (one per AZ, each in the same-AZ public subnet) ---------
+  NatEip1:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-nat-eip-1"
+        - Key: Environment
+          Value: !Ref Environment
+
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEip1.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-nat-1"
+        - Key: Environment
+          Value: !Ref Environment
+
+  NatEip2:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-nat-eip-2"
+        - Key: Environment
+          Value: !Ref Environment
+
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEip2.AllocationId
+      SubnetId: !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-nat-2"
+        - Key: Environment
+          Value: !Ref Environment
+
+  NatEip3:
+    Type: AWS::EC2::EIP
+    Condition: HasThirdAz
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-nat-eip-3"
+        - Key: Environment
+          Value: !Ref Environment
+
+  NatGateway3:
+    Type: AWS::EC2::NatGateway
+    Condition: HasThirdAz
+    Properties:
+      AllocationId: !GetAtt NatEip3.AllocationId
+      SubnetId: !Ref PublicSubnet3
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-nat-3"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # --- Public routing (single public route table, 0.0.0.0/0 -> IGW) --------
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-public-rt"
+        - Key: Environment
+          Value: !Ref Environment
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  PublicSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: HasThirdAz
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet3
+
+  # --- Private routing (one route table per AZ, 0.0.0.0/0 -> same-AZ NAT) ---
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-private-rt-1"
+        - Key: Environment
+          Value: !Ref Environment
+
+  PrivateDefaultRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-private-rt-2"
+        - Key: Environment
+          Value: !Ref Environment
+
+  PrivateDefaultRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      SubnetId: !Ref PrivateSubnet2
+
+  PrivateRouteTable3:
+    Type: AWS::EC2::RouteTable
+    Condition: HasThirdAz
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-private-rt-3"
+        - Key: Environment
+          Value: !Ref Environment
+
+  PrivateDefaultRoute3:
+    Type: AWS::EC2::Route
+    Condition: HasThirdAz
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable3
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway3
+
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: HasThirdAz
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable3
+      SubnetId: !Ref PrivateSubnet3
+
+# ---------------------------------------------------------------------------
+# Outputs / Exports (Task 2.3) - Requirements 1.8, 6.2
+# Every Export.Name is prefixed with "${Environment}-" so dev and prod never
+# collide within the same account/region.
+# ---------------------------------------------------------------------------
+Outputs:
+  VpcId:
+    Description: The VPC identifier.
+    Value: !Ref Vpc
+    Export:
+      Name: !Sub "${Environment}-VpcId"
+
+  PublicSubnetIds:
+    Description: Comma-delimited list of public subnet identifiers.
+    Value: !Join
+      - ","
+      - !If
+        - HasThirdAz
+        - [!Ref PublicSubnet1, !Ref PublicSubnet2, !Ref PublicSubnet3]
+        - [!Ref PublicSubnet1, !Ref PublicSubnet2]
+    Export:
+      Name: !Sub "${Environment}-PublicSubnetIds"
+
+  PrivateSubnetIds:
+    Description: Comma-delimited list of private subnet identifiers.
+    Value: !Join
+      - ","
+      - !If
+        - HasThirdAz
+        - [!Ref PrivateSubnet1, !Ref PrivateSubnet2, !Ref PrivateSubnet3]
+        - [!Ref PrivateSubnet1, !Ref PrivateSubnet2]
+    Export:
+      Name: !Sub "${Environment}-PrivateSubnetIds"
+
+  PublicSubnet1Id:
+    Description: Public subnet identifier in the first AZ.
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: !Sub "${Environment}-PublicSubnet1Id"
+
+  PublicSubnet2Id:
+    Description: Public subnet identifier in the second AZ.
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub "${Environment}-PublicSubnet2Id"
+
+  PublicSubnet3Id:
+    Condition: HasThirdAz
+    Description: Public subnet identifier in the third AZ.
+    Value: !Ref PublicSubnet3
+    Export:
+      Name: !Sub "${Environment}-PublicSubnet3Id"
+
+  PrivateSubnet1Id:
+    Description: Private subnet identifier in the first AZ.
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: !Sub "${Environment}-PrivateSubnet1Id"
+
+  PrivateSubnet2Id:
+    Description: Private subnet identifier in the second AZ.
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: !Sub "${Environment}-PrivateSubnet2Id"
+
+  PrivateSubnet3Id:
+    Condition: HasThirdAz
+    Description: Private subnet identifier in the third AZ.
+    Value: !Ref PrivateSubnet3
+    Export:
+      Name: !Sub "${Environment}-PrivateSubnet3Id"

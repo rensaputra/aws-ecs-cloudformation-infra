@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  ECS Fargate cluster layer (03-ecs-cluster) for the ECS Fargate platform.
+  Provisions exactly one ECS cluster with Container Insights enabled and the
+  FARGATE and FARGATE_SPOT capacity providers, together with an AWS Cloud Map
+  HTTP namespace used by ECS Service Connect. The cluster's Service Connect
+  defaults point at the created namespace so services registered in this
+  cluster discover one another through it. The cluster name, cluster ARN, and
+  namespace ARN are exported with environment-prefixed names for downstream
+  stacks (the ECS service layer). This layer imports nothing.
+
+# ---------------------------------------------------------------------------
+# Parameters (Task 5.1) - Requirements 4.1, 4.2, 4.3, 4.4
+# ---------------------------------------------------------------------------
+Parameters:
+  Environment:
+    Type: String
+    Description: Deployment environment identifier; prefixes all export names.
+    AllowedValues:
+      - dev
+      - prod
+
+  NamespaceName:
+    Type: String
+    Description: >-
+      Name of the AWS Cloud Map HTTP namespace used by ECS Service Connect for
+      service discovery within the cluster.
+
+# ---------------------------------------------------------------------------
+# Resources (Task 5.1) - Requirements 4.1, 4.2, 4.3, 4.4
+# This layer imports nothing. Rollback on any resource provisioning failure is
+# CloudFormation's default behavior, satisfying Requirement 4.4.
+# ---------------------------------------------------------------------------
+Resources:
+
+  # --- Cloud Map HTTP namespace --------------------------------------------
+  # Service Connect requires an HTTP-type Cloud Map namespace. Created before
+  # the cluster references it via ServiceConnectDefaults (Requirement 4.2).
+  ServiceDiscoveryNamespace:
+    Type: AWS::ServiceDiscovery::HttpNamespace
+    Properties:
+      Name: !Ref NamespaceName
+      Description: !Sub "Service Connect namespace for the ${Environment} ECS cluster."
+      Tags:
+        - Key: Name
+          Value: !Ref NamespaceName
+        - Key: Environment
+          Value: !Ref Environment
+
+  # --- ECS cluster ---------------------------------------------------------
+  # Container Insights is enabled via ClusterSettings (Requirement 4.3). The
+  # ServiceConnectDefaults namespace points at the Cloud Map namespace so
+  # services in this cluster default to it for Service Connect.
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${Environment}-cluster"
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      ServiceConnectDefaults:
+        Namespace: !Ref NamespaceName
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-cluster"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # --- Capacity provider associations --------------------------------------
+  # Associates the FARGATE and FARGATE_SPOT capacity providers with the cluster
+  # (Requirement 4.1). A default strategy directs new tasks to FARGATE unless
+  # overridden by a service.
+  ClusterCapacityProviders:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      Cluster: !Ref EcsCluster
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+          Base: 0
+
+# ---------------------------------------------------------------------------
+# Outputs / Exports (Task 5.2) - Requirements 4.5, 4.6, 4.7, 6.2
+# Every Export.Name is prefixed with "${Environment}-" so dev and prod never
+# collide within the same account/region.
+# ---------------------------------------------------------------------------
+Outputs:
+  ClusterName:
+    Description: The ECS cluster name.
+    Value: !Ref EcsCluster
+    Export:
+      Name: !Sub "${Environment}-ClusterName"
+
+  ClusterArn:
+    Description: The ECS cluster ARN.
+    Value: !GetAtt EcsCluster.Arn
+    Export:
+      Name: !Sub "${Environment}-ClusterArn"
+
+  NamespaceArn:
+    Description: The Cloud Map HTTP namespace ARN used by Service Connect.
+    Value: !GetAtt ServiceDiscoveryNamespace.Arn
+    Export:
+      Name: !Sub "${Environment}-NamespaceArn"

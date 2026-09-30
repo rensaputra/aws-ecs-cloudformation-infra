@@ -1,0 +1,5 @@
+{
+  "Environment": "dev",
+  "AlbIngressCidr": "0.0.0.0/0",
+  "ContainerListenerPort": "8080"
+}

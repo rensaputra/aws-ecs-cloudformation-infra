@@ -1,0 +1,16 @@
+{
+  "Environment": "prod",
+  "ServiceName": "web-app",
+  "ContainerImageUri": "111122223333.dkr.ecr.us-east-1.amazonaws.com/web-app:prod-latest",
+  "ContainerPort": "8080",
+  "TaskCpu": "512",
+  "TaskMemory": "1024",
+  "ServiceConnectPort": "8081",
+  "DesiredCount": "3",
+  "MinTaskCount": "3",
+  "MaxTaskCount": "10",
+  "TargetCpuUtilization": "60",
+  "HealthCheckPath": "/",
+  "ListenerRulePriority": "100",
+  "LogRetentionInDays": "90"
+}

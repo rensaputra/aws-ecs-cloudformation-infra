@@ -1,0 +1,14 @@
+# cfn-lint configuration
+# See: https://github.com/aws-cloudformation/cfn-lint
+#
+# Placeholder configuration referenced by the CI workflow and local tooling.
+# Templates are authored under templates/** in later tasks.
+templates:
+  - templates/**/*.yml
+
+# Regions to validate templates against.
+regions:
+  - us-east-1
+
+# Rule identifiers to ignore can be listed here as templates are authored.
+# ignore_checks: []

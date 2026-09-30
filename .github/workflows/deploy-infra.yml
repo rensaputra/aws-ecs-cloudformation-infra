@@ -1,0 +1,162 @@
+# Deploy_Workflow (Requirement 9): manually triggered deployment of the
+# infrastructure layers to a chosen environment.
+#
+# The layers are deployed in strict dependency order:
+#   00-vpc -> 01-security-groups -> 02-alb -> 03-ecs-cluster
+# Each step is gated on the previous one succeeding (no `continue-on-error`),
+# so a failure halts all subsequent steps and names the template that failed
+# (Requirement 9.1, 9.6). The 04-ecs-service stack is intentionally excluded
+# from this workflow (it is deployed via deploy-dispatch.yml).
+name: Deploy Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment to deploy to.
+        required: true
+        # `choice` restricts the value to exactly dev or prod; anything else
+        # cannot be selected, satisfying Requirement 9.2 / 9.3.
+        type: choice
+        options:
+          - dev
+          - prod
+
+# OIDC federation requires write access to the id-token; contents:read lets
+# the job check out the templates and parameter files.
+permissions:
+  id-token: write
+  contents: read
+
+# Prevent overlapping deploys to the same environment from racing.
+concurrency:
+  group: deploy-infra-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ENVIRONMENT: ${{ inputs.environment }}
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.environment }} infrastructure
+    runs-on: ubuntu-latest
+    # Bind to the GitHub Environment so environment-scoped secrets/vars and
+    # protection rules apply.
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Authenticate to AWS via OIDC BEFORE any deployment. If this step fails,
+      # the job fails and no template is deployed (Requirement 9.4, 9.5).
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ---------------------------------------------------------------------
+      # Layer 1: VPC (00-vpc)
+      # ---------------------------------------------------------------------
+      - name: Deploy 00-vpc
+        run: |
+          set -euo pipefail
+          TEMPLATE="00-vpc"
+          PARAM_FILE="parameters/${ENVIRONMENT}/${TEMPLATE}.json"
+
+          # Requirement 7.4 / 7.5: use the parameter file for the selected
+          # environment; if it is missing, halt and name the file.
+          if [ ! -f "${PARAM_FILE}" ]; then
+            echo "::error::Missing parameter file for template '${TEMPLATE}' in environment '${ENVIRONMENT}': ${PARAM_FILE}"
+            exit 1
+          fi
+
+          # Flat JSON object -> space-separated Key=Value overrides for
+          # `aws cloudformation deploy --parameter-overrides`.
+          mapfile -t OVERRIDES < <(jq -r 'to_entries[] | "\(.key)=\(.value)"' "${PARAM_FILE}")
+
+          echo "Deploying template '${TEMPLATE}' as stack '${ENVIRONMENT}-vpc'..."
+          aws cloudformation deploy \
+            --template-file "templates/${TEMPLATE}.yml" \
+            --stack-name "${ENVIRONMENT}-vpc" \
+            --parameter-overrides "${OVERRIDES[@]}" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset \
+          || { echo "::error::Deployment failed for template '${TEMPLATE}'"; exit 1; }
+
+      # ---------------------------------------------------------------------
+      # Layer 2: Security Groups (01-security-groups) - gated on VPC success
+      # ---------------------------------------------------------------------
+      - name: Deploy 01-security-groups
+        run: |
+          set -euo pipefail
+          TEMPLATE="01-security-groups"
+          PARAM_FILE="parameters/${ENVIRONMENT}/${TEMPLATE}.json"
+
+          if [ ! -f "${PARAM_FILE}" ]; then
+            echo "::error::Missing parameter file for template '${TEMPLATE}' in environment '${ENVIRONMENT}': ${PARAM_FILE}"
+            exit 1
+          fi
+
+          mapfile -t OVERRIDES < <(jq -r 'to_entries[] | "\(.key)=\(.value)"' "${PARAM_FILE}")
+
+          echo "Deploying template '${TEMPLATE}' as stack '${ENVIRONMENT}-security-groups'..."
+          aws cloudformation deploy \
+            --template-file "templates/${TEMPLATE}.yml" \
+            --stack-name "${ENVIRONMENT}-security-groups" \
+            --parameter-overrides "${OVERRIDES[@]}" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset \
+          || { echo "::error::Deployment failed for template '${TEMPLATE}'"; exit 1; }
+
+      # ---------------------------------------------------------------------
+      # Layer 3: ALB (02-alb) - gated on security groups success
+      # ---------------------------------------------------------------------
+      - name: Deploy 02-alb
+        run: |
+          set -euo pipefail
+          TEMPLATE="02-alb"
+          PARAM_FILE="parameters/${ENVIRONMENT}/${TEMPLATE}.json"
+
+          if [ ! -f "${PARAM_FILE}" ]; then
+            echo "::error::Missing parameter file for template '${TEMPLATE}' in environment '${ENVIRONMENT}': ${PARAM_FILE}"
+            exit 1
+          fi
+
+          mapfile -t OVERRIDES < <(jq -r 'to_entries[] | "\(.key)=\(.value)"' "${PARAM_FILE}")
+
+          echo "Deploying template '${TEMPLATE}' as stack '${ENVIRONMENT}-alb'..."
+          aws cloudformation deploy \
+            --template-file "templates/${TEMPLATE}.yml" \
+            --stack-name "${ENVIRONMENT}-alb" \
+            --parameter-overrides "${OVERRIDES[@]}" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset \
+          || { echo "::error::Deployment failed for template '${TEMPLATE}'"; exit 1; }
+
+      # ---------------------------------------------------------------------
+      # Layer 4: ECS Cluster (03-ecs-cluster) - gated on ALB success
+      # ---------------------------------------------------------------------
+      - name: Deploy 03-ecs-cluster
+        run: |
+          set -euo pipefail
+          TEMPLATE="03-ecs-cluster"
+          PARAM_FILE="parameters/${ENVIRONMENT}/${TEMPLATE}.json"
+
+          if [ ! -f "${PARAM_FILE}" ]; then
+            echo "::error::Missing parameter file for template '${TEMPLATE}' in environment '${ENVIRONMENT}': ${PARAM_FILE}"
+            exit 1
+          fi
+
+          mapfile -t OVERRIDES < <(jq -r 'to_entries[] | "\(.key)=\(.value)"' "${PARAM_FILE}")
+
+          echo "Deploying template '${TEMPLATE}' as stack '${ENVIRONMENT}-ecs-cluster'..."
+          aws cloudformation deploy \
+            --template-file "templates/${TEMPLATE}.yml" \
+            --stack-name "${ENVIRONMENT}-ecs-cluster" \
+            --parameter-overrides "${OVERRIDES[@]}" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset \
+          || { echo "::error::Deployment failed for template '${TEMPLATE}'"; exit 1; }

@@ -1,0 +1,125 @@
+name: CloudFormation Validate
+
+# CI_Workflow (Requirement 8): lint and security-scan CloudFormation templates on
+# pull requests targeting the default branch. No AWS credentials are configured or
+# needed — this workflow only lints and scans template files, it does not deploy.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+# No permissions beyond reading repository contents are required. In particular no
+# id-token/OIDC permission is granted, so no AWS credentials can be assumed.
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Lint and security-scan templates
+    runs-on: ubuntu-latest
+    # Requirement 8.6: exceeding 15 minutes terminates the job with a failing status.
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Requirements 8.1 / 8.2: discover template files under templates/** recursively.
+      # Zero templates is a valid, successful no-op — the later steps simply have
+      # nothing to scan and the job passes.
+      - name: Discover templates
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d templates ]; then
+            # Recursively find *.yml / *.yaml / *.json templates under templates/**.
+            mapfile -t files < <(find templates -type f \
+              \( -name '*.yml' -o -name '*.yaml' -o -name '*.json' \) | sort)
+          else
+            files=()
+          fi
+
+          count=${#files[@]}
+          echo "count=${count}" >> "$GITHUB_OUTPUT"
+
+          # Persist the newline-delimited file list for downstream steps.
+          {
+            echo 'files<<EOF'
+            for f in "${files[@]}"; do
+              echo "$f"
+            done
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$count" -eq 0 ]; then
+            echo "No templates found under templates/**; nothing to validate (successful no-op)."
+          else
+            echo "Discovered ${count} template file(s):"
+            printf '  %s\n' "${files[@]}"
+          fi
+
+      - name: Set up Python
+        if: steps.discover.outputs.count != '0'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install cfn-lint
+        if: steps.discover.outputs.count != '0'
+        run: pip install --upgrade cfn-lint
+
+      # Requirements 8.1 / 8.3: run cfn-lint over every discovered template. Any
+      # error-severity finding fails the job; cfn-lint reports the template file
+      # path and the location (line/column) of each finding.
+      - name: Run cfn-lint
+        if: steps.discover.outputs.count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files <<< "${{ steps.discover.outputs.files }}"
+          # Drop any empty entries.
+          filtered=()
+          for f in "${files[@]}"; do
+            [ -n "$f" ] && filtered+=("$f")
+          done
+          echo "Running cfn-lint on ${#filtered[@]} template(s)..."
+          # cfn-lint exits non-zero on error-severity findings, failing the job.
+          # The default output includes the file path and line/column location.
+          cfn-lint "${filtered[@]}"
+
+      - name: Set up Ruby (cfn-nag)
+        if: steps.discover.outputs.count != '0'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install cfn-nag
+        if: steps.discover.outputs.count != '0'
+        run: gem install cfn-nag
+
+      # Requirements 8.2 / 8.4: run cfn-nag over every template under templates/.
+      # Any failing finding fails the job; cfn_nag_scan reports the template file
+      # path and the rule identifier for each finding.
+      - name: Run cfn-nag
+        if: steps.discover.outputs.count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Running cfn-nag over templates/ ..."
+          # cfn_nag_scan exits non-zero when there are failing findings, failing
+          # the job. Output includes the input file path and the rule id (e.g. W2/F1000).
+          cfn_nag_scan --input-path templates/
+
+      # Requirement 8.5: if both cfn-lint and cfn-nag complete with no error/failing
+      # findings (or there were zero templates to scan), the job reaches here and passes.
+      - name: Validation summary
+        if: success()
+        shell: bash
+        run: |
+          if [ "${{ steps.discover.outputs.count }}" = "0" ]; then
+            echo "No templates to validate — passing (no-op)."
+          else
+            echo "cfn-lint and cfn-nag both reported no failing findings — validation passed."
+          fi

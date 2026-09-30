@@ -1,0 +1,4 @@
+{
+  "Environment": "prod",
+  "CertificateArn": "arn:aws:acm:us-east-1:111122223333:certificate/abcdef01-2345-6789-abcd-ef0123456789"
+}

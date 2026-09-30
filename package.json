@@ -1,0 +1,22 @@
+{
+  "name": "aws-ecs-cloudformation-infra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Modular, layered AWS CloudFormation templates for ECS Fargate workloads, with a property-based test harness.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint:cfn": "cfn-lint templates/",
+    "scan:cfn": "cfn_nag_scan --input-path templates/",
+    "validate": "npm run lint:cfn && npm run scan:cfn && npm run test"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.10.2",
+    "fast-check": "^3.23.2",
+    "js-yaml": "^4.1.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
