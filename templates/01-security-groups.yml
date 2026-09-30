@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Security group layer (01-security-groups) for the ECS Fargate platform.
+  Provisions exactly two least-privilege security groups: one for the internet
+  facing ALB and one for the ECS services. The ALB security group admits HTTPS
+  (443) from a configurable source CIDR; the ECS service security group admits
+  the container listener port only from the ALB security group and denies all
+  other inbound traffic by default. The VPC identifier is imported from the VPC
+  template via a cross-stack reference, and both group identifiers are exported
+  with environment-prefixed names.
+
+# ---------------------------------------------------------------------------
+# Parameters (Task 3.1) - Requirements 2.2, 2.6
+# ---------------------------------------------------------------------------
+Parameters:
+  Environment:
+    Type: String
+    Description: Deployment environment identifier; prefixes all export names.
+    AllowedValues:
+      - dev
+      - prod
+
+  AlbIngressCidr:
+    Type: String
+    Description: >-
+      Source IPv4 CIDR block permitted to reach the ALB on port 443. Must be a
+      syntactically valid IPv4 CIDR with a prefix length between /0 and /32
+      inclusive.
+    # Octet regex (0-255) x4, then a prefix length restricted to 0-32.
+    AllowedPattern: >-
+      ^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])/([0-9]|[12][0-9]|3[0-2])$
+    ConstraintDescription: >-
+      Must be a valid IPv4 CIDR block with a prefix length between /0 and /32
+      (for example, 203.0.113.0/24).
+
+  ContainerListenerPort:
+    Type: Number
+    Description: >-
+      TCP port the ECS containers listen on; the ALB security group is allowed
+      to reach the ECS service security group on this port only.
+    MinValue: 1
+    MaxValue: 65535
+
+# ---------------------------------------------------------------------------
+# Resources (Task 3.2) - Requirements 2.1, 2.3, 2.4, 2.7
+# The VPC identifier is imported from the VPC template; an unresolved import
+# fails the operation before any resource is created or modified
+# (Requirements 2.7, 6.3).
+# ---------------------------------------------------------------------------
+Resources:
+
+  # --- ALB security group --------------------------------------------------
+  # Ingress: TCP 443 from the configurable source CIDR only (Requirement 2.2).
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: >-
+        ALB security group: allows inbound HTTPS (443) from the configured
+        source CIDR only.
+      VpcId:
+        Fn::ImportValue: !Sub "${Environment}-VpcId"
+      SecurityGroupIngress:
+        - Description: Inbound HTTPS from the configured source CIDR.
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref AlbIngressCidr
+      SecurityGroupEgress:
+        - Description: >-
+            Egress to the ECS service security group on the container listener
+            port so the ALB can forward traffic to targets.
+          IpProtocol: tcp
+          FromPort: !Ref ContainerListenerPort
+          ToPort: !Ref ContainerListenerPort
+          DestinationSecurityGroupId: !Ref EcsServiceSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-alb-sg"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # --- ECS service security group ------------------------------------------
+  # No inline ingress: all inbound is denied by the default-deny nature of
+  # security groups. The single permitted inbound rule is attached separately
+  # below (Requirement 2.3).
+  EcsServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: >-
+        ECS service security group: allows inbound only from the ALB security
+        group on the container listener port; all other inbound is denied by
+        default.
+      VpcId:
+        Fn::ImportValue: !Sub "${Environment}-VpcId"
+      SecurityGroupEgress:
+        - Description: Allow all outbound traffic (tasks pull images and reach AWS APIs).
+          IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-ecs-service-sg"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Separate ingress rule (avoids a circular dependency between the two groups)
+  # allowing TCP on the container listener port from the ALB security group
+  # only (Requirement 2.3).
+  EcsServiceIngressFromAlb:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: >-
+        Inbound from the ALB security group on the container listener port only.
+      GroupId: !Ref EcsServiceSecurityGroup
+      IpProtocol: tcp
+      FromPort: !Ref ContainerListenerPort
+      ToPort: !Ref ContainerListenerPort
+      SourceSecurityGroupId: !Ref AlbSecurityGroup
+
+# ---------------------------------------------------------------------------
+# Outputs / Exports (Task 3.3) - Requirements 2.5, 6.2
+# Every Export.Name is prefixed with "${Environment}-" so dev and prod never
+# collide within the same account/region.
+# ---------------------------------------------------------------------------
+Outputs:
+  AlbSecurityGroupId:
+    Description: The ALB security group identifier.
+    Value: !Ref AlbSecurityGroup
+    Export:
+      Name: !Sub "${Environment}-AlbSecurityGroupId"
+
+  EcsServiceSecurityGroupId:
+    Description: The ECS service security group identifier.
+    Value: !Ref EcsServiceSecurityGroup
+    Export:
+      Name: !Sub "${Environment}-EcsServiceSecurityGroupId"

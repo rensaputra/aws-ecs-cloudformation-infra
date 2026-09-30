@@ -1,0 +1,635 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Reusable ECS Fargate service layer (04-ecs-service) for the ECS Fargate
+  platform (Web_App_Service_Stack). Provisions one Fargate task definition
+  (image pulled from ECR), an ECS service placed in the imported private
+  subnets and associated with the imported ECS service security group, ECS
+  Service Connect (HTTP/2) registered against the imported Cloud Map namespace
+  and cluster, a target group attached to the imported HTTPS listener via a
+  listener rule, and Application Auto Scaling with a target-tracking policy on
+  average CPU utilization. Valid Fargate CPU/memory combinations and the
+  autoscaling min/max relationship are enforced at template-validation time via
+  a Rules section. The service ARN is optionally exported with an
+  environment-prefixed, service-scoped name.
+
+# ---------------------------------------------------------------------------
+# Parameters (Task 6.1) - Requirements 5.1, 5.2, 5.7, 5.8, 5.9
+# Numeric ranges are constrained with MinValue/MaxValue and the discrete
+# Fargate CPU/memory sets with AllowedValues; the valid (CPU, memory) pairing
+# and the MinTaskCount <= MaxTaskCount relationship are asserted in the Rules
+# section below (Requirements 5.8, 5.9).
+# ---------------------------------------------------------------------------
+Parameters:
+  Environment:
+    Type: String
+    Description: Deployment environment identifier; prefixes all export names.
+    AllowedValues:
+      - dev
+      - prod
+
+  ServiceName:
+    Type: String
+    Description: >-
+      Logical name of the service; used to name resources and scope the
+      optional ServiceArn export so multiple services can coexist per
+      environment.
+    MinLength: 1
+    MaxLength: 200
+    AllowedPattern: "^[A-Za-z0-9][A-Za-z0-9-]*$"
+    ConstraintDescription: >-
+      Must start with an alphanumeric character and contain only alphanumeric
+      characters and hyphens.
+
+  ContainerImageUri:
+    Type: String
+    Description: >-
+      Container image URI to run (an image stored in Amazon ECR). Supplied by
+      the dispatch payload for image updates (Requirement 5.2).
+    MinLength: 1
+
+  ContainerPort:
+    Type: Number
+    Description: >-
+      Container/application port the load balancer target group forwards to.
+      Constrained to the valid TCP port range 1-65535 (Requirements 5.2, 5.8).
+    MinValue: 1
+    MaxValue: 65535
+
+  TaskCpu:
+    Type: String
+    Description: >-
+      Fargate task CPU units. Must form a valid Fargate CPU/memory combination
+      with TaskMemory (enforced by the Rules section) (Requirements 5.1, 5.8).
+    AllowedValues:
+      - "256"
+      - "512"
+      - "1024"
+      - "2048"
+      - "4096"
+
+  TaskMemory:
+    Type: String
+    Description: >-
+      Fargate task memory in MiB. Must form a valid Fargate CPU/memory
+      combination with TaskCpu (enforced by the Rules section) (Requirements
+      5.1, 5.8).
+    AllowedValues:
+      - "512"
+      - "1024"
+      - "2048"
+      - "3072"
+      - "4096"
+      - "5120"
+      - "6144"
+      - "7168"
+      - "8192"
+      - "9216"
+      - "10240"
+      - "11264"
+      - "12288"
+      - "13312"
+      - "14336"
+      - "15360"
+      - "16384"
+      - "17408"
+      - "18432"
+      - "19456"
+      - "20480"
+      - "21504"
+      - "22528"
+      - "23552"
+      - "24576"
+      - "25600"
+      - "26624"
+      - "27648"
+      - "28672"
+      - "29696"
+      - "30720"
+
+  ServiceConnectPort:
+    Type: Number
+    Description: >-
+      Port advertised through ECS Service Connect for service-to-service
+      discovery over HTTP/2 (Requirement 5.4).
+    MinValue: 1
+    MaxValue: 65535
+
+  DesiredCount:
+    Type: Number
+    Description: Desired number of running tasks for the service (Requirement 5.2).
+    MinValue: 0
+
+  MinTaskCount:
+    Type: Number
+    Description: >-
+      Minimum number of running tasks for autoscaling. Must be <= MaxTaskCount
+      (enforced by the Rules section) (Requirements 5.7, 5.9).
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+
+  MaxTaskCount:
+    Type: Number
+    Description: >-
+      Maximum number of running tasks for autoscaling. Must be >= MinTaskCount
+      (enforced by the Rules section) (Requirements 5.7, 5.9).
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+
+  TargetCpuUtilization:
+    Type: Number
+    Description: >-
+      Target average CPU utilization percentage for the target-tracking scaling
+      policy. Constrained to 1-100 percent (Requirements 5.7, 5.8).
+    MinValue: 1
+    MaxValue: 100
+
+  HealthCheckPath:
+    Type: String
+    Description: HTTP path used by the target group health check.
+    Default: "/"
+    MinLength: 1
+
+  ListenerRulePriority:
+    Type: Number
+    Description: >-
+      Priority of the HTTPS listener rule that forwards traffic to this
+      service's target group. Must be unique among rules on the listener.
+    MinValue: 1
+    MaxValue: 50000
+    Default: 100
+
+  LogRetentionInDays:
+    Type: Number
+    Description: Retention period (in days) for the task's CloudWatch log group.
+    Default: 30
+    AllowedValues:
+      - 1
+      - 3
+      - 5
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+      - 120
+      - 150
+      - 180
+      - 365
+
+# ---------------------------------------------------------------------------
+# Rules (Task 6.1) - Requirements 5.8, 5.9
+# Rule functions run at validation time, before any resource is created. The
+# per-CPU rules assert TaskMemory is one of the valid MiB values for the
+# selected TaskCpu (the official Fargate CPU/memory matrix). The MinLeqMax
+# rules assert MinTaskCount <= MaxTaskCount. Rule functions offer only
+# set/equality operators (no numeric comparison), so the min/max relationship
+# is expressed as: "for a given MinTaskCount value, MaxTaskCount must be one of
+# the values at or above it" across the bounded 0-100 task range.
+# ---------------------------------------------------------------------------
+Rules:
+  Cpu256Memory:
+    RuleCondition: !Equals [!Ref TaskCpu, "256"]
+    Assertions:
+      - Assert:
+          !Contains [["512", "1024", "2048"], !Ref TaskMemory]
+        AssertDescription: >-
+          For 256 CPU units, TaskMemory must be one of 512, 1024, or 2048 MiB.
+
+  Cpu512Memory:
+    RuleCondition: !Equals [!Ref TaskCpu, "512"]
+    Assertions:
+      - Assert:
+          !Contains [["1024", "2048", "3072", "4096"], !Ref TaskMemory]
+        AssertDescription: >-
+          For 512 CPU units, TaskMemory must be one of 1024, 2048, 3072, or
+          4096 MiB.
+
+  Cpu1024Memory:
+    RuleCondition: !Equals [!Ref TaskCpu, "1024"]
+    Assertions:
+      - Assert:
+          !Contains
+          - ["2048", "3072", "4096", "5120", "6144", "7168", "8192"]
+          - !Ref TaskMemory
+        AssertDescription: >-
+          For 1024 CPU units, TaskMemory must be between 2048 and 8192 MiB in
+          1024 MiB (1 GB) increments.
+
+  Cpu2048Memory:
+    RuleCondition: !Equals [!Ref TaskCpu, "2048"]
+    Assertions:
+      - Assert:
+          !Contains
+          - - "4096"
+            - "5120"
+            - "6144"
+            - "7168"
+            - "8192"
+            - "9216"
+            - "10240"
+            - "11264"
+            - "12288"
+            - "13312"
+            - "14336"
+            - "15360"
+            - "16384"
+          - !Ref TaskMemory
+        AssertDescription: >-
+          For 2048 CPU units, TaskMemory must be between 4096 and 16384 MiB in
+          1024 MiB (1 GB) increments.
+
+  Cpu4096Memory:
+    RuleCondition: !Equals [!Ref TaskCpu, "4096"]
+    Assertions:
+      - Assert:
+          !Contains
+          - - "8192"
+            - "9216"
+            - "10240"
+            - "11264"
+            - "12288"
+            - "13312"
+            - "14336"
+            - "15360"
+            - "16384"
+            - "17408"
+            - "18432"
+            - "19456"
+            - "20480"
+            - "21504"
+            - "22528"
+            - "23552"
+            - "24576"
+            - "25600"
+            - "26624"
+            - "27648"
+            - "28672"
+            - "29696"
+            - "30720"
+          - !Ref TaskMemory
+        AssertDescription: >-
+          For 4096 CPU units, TaskMemory must be between 8192 and 30720 MiB in
+          1024 MiB (1 GB) increments.
+
+  # MinTaskCount <= MaxTaskCount. Rule functions have no numeric comparison, so
+  # for each MinTaskCount value the rule asserts MaxTaskCount is one of the
+  # values at or above it, over the bounded 1-10 task range (Requirement 5.9).
+  MinLeqMax1:
+    RuleCondition: !Equals [!Ref MinTaskCount, "1"]
+    Assertions:
+      - Assert:
+          !Contains
+          - ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+          - !Ref MaxTaskCount
+        AssertDescription: MinTaskCount must be less than or equal to MaxTaskCount.
+
+  MinLeqMax2:
+    RuleCondition: !Equals [!Ref MinTaskCount, "2"]
+    Assertions:
+      - Assert:
+          !Contains
+          - ["2", "3", "4", "5", "6", "7", "8", "9", "10"]
+          - !Ref MaxTaskCount
+        AssertDescription: MinTaskCount must be less than or equal to MaxTaskCount.
+
+  MinLeqMax3:
+    RuleCondition: !Equals [!Ref MinTaskCount, "3"]
+    Assertions:
+      - Assert:
+          !Contains
+          - ["3", "4", "5", "6", "7", "8", "9", "10"]
+          - !Ref MaxTaskCount
+        AssertDescription: MinTaskCount must be less than or equal to MaxTaskCount.
+
+  MinLeqMax4:
+    RuleCondition: !Equals [!Ref MinTaskCount, "4"]
+    Assertions:
+      - Assert:
+          !Contains
+          - ["4", "5", "6", "7", "8", "9", "10"]
+          - !Ref MaxTaskCount
+        AssertDescription: MinTaskCount must be less than or equal to MaxTaskCount.
+
+  MinLeqMax5:
+    RuleCondition: !Equals [!Ref MinTaskCount, "5"]
+    Assertions:
+      - Assert:
+          !Contains
+          - ["5", "6", "7", "8", "9", "10"]
+          - !Ref MaxTaskCount
+        AssertDescription: MinTaskCount must be less than or equal to MaxTaskCount.
+
+  MinLeqMax6:
+    RuleCondition: !Equals [!Ref MinTaskCount, "6"]
+    Assertions:
+      - Assert:
+          !Contains
+          - ["6", "7", "8", "9", "10"]
+          - !Ref MaxTaskCount
+        AssertDescription: MinTaskCount must be less than or equal to MaxTaskCount.
+
+  MinLeqMax7:
+    RuleCondition: !Equals [!Ref MinTaskCount, "7"]
+    Assertions:
+      - Assert:
+          !Contains
+          - ["7", "8", "9", "10"]
+          - !Ref MaxTaskCount
+        AssertDescription: MinTaskCount must be less than or equal to MaxTaskCount.
+
+  MinLeqMax8:
+    RuleCondition: !Equals [!Ref MinTaskCount, "8"]
+    Assertions:
+      - Assert:
+          !Contains
+          - ["8", "9", "10"]
+          - !Ref MaxTaskCount
+        AssertDescription: MinTaskCount must be less than or equal to MaxTaskCount.
+
+  MinLeqMax9:
+    RuleCondition: !Equals [!Ref MinTaskCount, "9"]
+    Assertions:
+      - Assert:
+          !Contains
+          - ["9", "10"]
+          - !Ref MaxTaskCount
+        AssertDescription: MinTaskCount must be less than or equal to MaxTaskCount.
+
+  MinLeqMax10:
+    RuleCondition: !Equals [!Ref MinTaskCount, "10"]
+    Assertions:
+      - Assert:
+          !Contains
+          - ["10"]
+          - !Ref MaxTaskCount
+        AssertDescription: MinTaskCount must be less than or equal to MaxTaskCount.
+
+# ---------------------------------------------------------------------------
+# Resources (Task 6.2) - Requirements 5.3, 5.4, 5.5, 5.6, 5.7, 6.2
+# All cross-layer values (private subnets, ECS service SG, HTTPS listener,
+# cluster name, namespace ARN, VPC id) are imported via Fn::ImportValue; an
+# unresolved import fails the operation before any resource change
+# (Requirement 6.3).
+# ---------------------------------------------------------------------------
+Resources:
+
+  # --- CloudWatch log group ------------------------------------------------
+  # Destination for the container's awslogs driver. Created before the task
+  # definition references it.
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${Environment}/${ServiceName}"
+      RetentionInDays: !Ref LogRetentionInDays
+
+  # --- Task execution role -------------------------------------------------
+  # Used by the ECS agent to pull the image from ECR and write container logs
+  # to CloudWatch. Scoped to the AWS-managed execution policy plus explicit
+  # log-stream permissions for this service's log group (least privilege).
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Environment}-${ServiceName}-exec"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: log-write
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "${LogGroup.Arn}:*"
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: !Ref ServiceName
+
+  # --- Task role -----------------------------------------------------------
+  # Assumed by the running container. Created with no attached permissions
+  # (least privilege); grant application-specific permissions here as needed.
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Environment}-${ServiceName}-task"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: !Ref ServiceName
+
+  # --- Task definition -----------------------------------------------------
+  # Fargate/awsvpc task with the container image from ECR. The port mapping is
+  # named ("app") so Service Connect can reference it and advertises HTTP/2 on
+  # the Service Connect port (Requirements 5.1, 5.2, 5.4).
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${Environment}-${ServiceName}"
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: !Ref TaskCpu
+      Memory: !Ref TaskMemory
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: !Ref ServiceName
+          Image: !Ref ContainerImageUri
+          Essential: true
+          PortMappings:
+            - Name: app
+              ContainerPort: !Ref ServiceConnectPort
+              Protocol: tcp
+              AppProtocol: http2
+            - ContainerPort: !Ref ContainerPort
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Ref ServiceName
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: !Ref ServiceName
+
+  # --- Target group --------------------------------------------------------
+  # IP target type (required for awsvpc/Fargate), HTTP protocol on the
+  # container port. VpcId is imported from the VPC template (Requirement 5.5).
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${Environment}-${ServiceName}-tg"
+      TargetType: ip
+      Protocol: HTTP
+      Port: !Ref ContainerPort
+      VpcId:
+        Fn::ImportValue: !Sub "${Environment}-VpcId"
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: "200"
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: "30"
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: !Ref ServiceName
+
+  # --- HTTPS listener rule -------------------------------------------------
+  # Forwards matching requests on the imported HTTPS listener to this service's
+  # target group (Requirement 5.5). A path-pattern condition and a priority are
+  # required for a listener rule.
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn:
+        Fn::ImportValue: !Sub "${Environment}-HttpsListenerArn"
+      Priority: !Ref ListenerRulePriority
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - "/*"
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  # --- ECS service ---------------------------------------------------------
+  # Fargate service in the imported private subnets with the imported ECS
+  # service security group, no public IP, Service Connect (HTTP/2) against the
+  # imported namespace, registered to the imported cluster, and wired to the
+  # target group. DependsOn the listener rule so the listener forwards before
+  # the service registers targets (Requirements 5.3, 5.4, 5.5, 5.6).
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ListenerRule
+    Properties:
+      ServiceName: !Sub "${Environment}-${ServiceName}"
+      Cluster:
+        Fn::ImportValue: !Sub "${Environment}-ClusterName"
+      TaskDefinition: !Ref TaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: !Ref DesiredCount
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            Fn::Split:
+              - ","
+              - Fn::ImportValue: !Sub "${Environment}-PrivateSubnetIds"
+          SecurityGroups:
+            - Fn::ImportValue: !Sub "${Environment}-EcsServiceSecurityGroupId"
+      ServiceConnectConfiguration:
+        Enabled: true
+        Namespace:
+          Fn::ImportValue: !Sub "${Environment}-NamespaceArn"
+        Services:
+          - PortName: app
+            DiscoveryName: !Ref ServiceName
+            ClientAliases:
+              - Port: !Ref ServiceConnectPort
+                DnsName: !Ref ServiceName
+      LoadBalancers:
+        - TargetGroupArn: !Ref TargetGroup
+          ContainerName: !Ref ServiceName
+          ContainerPort: !Ref ContainerPort
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: !Ref ServiceName
+
+  # --- Autoscaling: scalable target ----------------------------------------
+  # Registers the service's desired task count as a scalable dimension between
+  # MinTaskCount and MaxTaskCount (Requirement 5.7).
+  ScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      ServiceNamespace: ecs
+      ScalableDimension: ecs:service:DesiredCount
+      ResourceId: !Sub
+        - "service/${ClusterName}/${ServiceFullName}"
+        - ClusterName:
+            Fn::ImportValue: !Sub "${Environment}-ClusterName"
+          ServiceFullName: !GetAtt Service.Name
+      MinCapacity: !Ref MinTaskCount
+      MaxCapacity: !Ref MaxTaskCount
+      RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService"
+
+  # --- Autoscaling: target-tracking policy ---------------------------------
+  # Target-tracking on average CPU utilization toward TargetCpuUtilization
+  # (Requirement 5.7).
+  ScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub "${Environment}-${ServiceName}-cpu-tracking"
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: !Ref TargetCpuUtilization
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+
+# ---------------------------------------------------------------------------
+# Outputs / Exports (Task 6.2) - Requirements 6.2
+# The optional ServiceArn export is scoped by both Environment and ServiceName
+# so multiple services can coexist within an environment without export-name
+# collisions.
+# ---------------------------------------------------------------------------
+Outputs:
+  ServiceArn:
+    Description: The ECS service ARN.
+    Value: !Ref Service
+    Export:
+      Name: !Sub "${Environment}-${ServiceName}-ServiceArn"

@@ -1,0 +1,5 @@
+{
+  "Environment": "dev",
+  "VpcCidr": "10.0.0.0/16",
+  "AvailabilityZoneCount": "2"
+}

@@ -1,0 +1,11 @@
+# cfn-nag rule configuration
+# See: https://github.com/stelligent/cfn_nag
+#
+# Placeholder configuration referenced by the CI workflow and local tooling
+# (`cfn_nag_scan --input-path templates/`). As templates are authored in later
+# tasks, document any intentionally suppressed rule ids here with rationale.
+#
+# Example (uncomment and adjust when needed):
+# RulesToSuppress:
+#   - id: W2          # Security Groups found with cidr open to world
+#     reason: "ALB ingress CIDR is a controlled parameter (Requirement 2.2)."

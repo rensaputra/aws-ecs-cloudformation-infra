@@ -1,0 +1,4 @@
+{
+  "Environment": "dev",
+  "CertificateArn": "arn:aws:acm:us-east-1:111122223333:certificate/12345678-1234-1234-1234-123456789012"
+}

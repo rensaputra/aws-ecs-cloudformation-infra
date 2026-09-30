@@ -1,11 +1,30 @@
 {
-  "pbtResults": {},
+  "pbtResults": {
+    "14.1 Property 1 test — subnet CIDR layout non-overlapping and complete per AZ": {
+      "status": "passed",
+      "lastRunTimestamp": 1790767567093
+    },
+    "14.4 Property 4 test — export names unique within an environment": {
+      "status": "passed",
+      "lastRunTimestamp": 1790767706605
+    }
+  },
   "executionHistory": {
     "1. Set up repository skeleton and shared test harness scaffolding": [
       {
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757479119
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790757493263
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790759677670
       }
     ],
     "2.1 Define VPC parameters with validation": [
@@ -13,6 +32,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757479288
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790759684272
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760158406
       }
     ],
     "2.2 Define VPC, IGW, subnets, NAT gateways, and route tables": [
@@ -20,6 +49,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757479355
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790759690824
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760159759
       }
     ],
     "2.3 Define env-prefixed VPC exports": [
@@ -27,6 +66,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757479428
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790759691602
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760160748
       }
     ],
     "3.1 Define SG parameters with validation": [
@@ -34,6 +83,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757479522
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760167938
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760294913
       }
     ],
     "3.2 Define the two security groups, ingress rules, and VPC import": [
@@ -41,6 +100,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757479600
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760169198
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760295932
       }
     ],
     "3.3 Define env-prefixed SG exports": [
@@ -48,6 +117,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757479664
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760170141
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760296774
       }
     ],
     "4.1 Define ALB parameters with validation": [
@@ -55,6 +134,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757479763
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760302589
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760639991
       }
     ],
     "4.2 Define the ALB, listeners, and imports": [
@@ -62,6 +151,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757479819
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760304011
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760642130
       }
     ],
     "4.3 Define env-prefixed ALB exports": [
@@ -69,6 +168,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757479900
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760304799
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760639054
       }
     ],
     "5.1 Define cluster parameters and resources": [
@@ -76,6 +185,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757479997
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760649358
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760750475
       }
     ],
     "5.2 Define env-prefixed cluster exports": [
@@ -83,6 +202,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480072
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760650014
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760751626
       }
     ],
     "6.1 Define service parameters, `AllowedValues`, and `Rules` validation": [
@@ -90,6 +219,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480130
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760760021
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765220259
       }
     ],
     "6.2 Define task definition, service, Service Connect, target group, and autoscaling with imports": [
@@ -97,6 +236,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480249
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760758768
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765221220
       }
     ],
     "7. Checkpoint - templates lint clean": [
@@ -104,6 +253,11 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480350
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790766648823
       }
     ],
     "8.1 Author dev parameter files": [
@@ -111,6 +265,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480431
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765243917
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765714475
       }
     ],
     "8.2 Author prod parameter files": [
@@ -118,6 +282,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480491
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765244867
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790766437602
       }
     ],
     "9. Author the CI validation workflow (`.github/workflows/cfn-validate.yml`)": [
@@ -125,6 +299,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480574
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765246363
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765715980
       }
     ],
     "10. Author the manual deploy workflow (`.github/workflows/deploy-infra.yml`)": [
@@ -132,6 +316,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480647
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765247720
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765717326
       }
     ],
     "11. Author the dispatch deploy workflow (`.github/workflows/deploy-dispatch.yml`)": [
@@ -139,6 +333,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480711
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765248735
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765718503
       }
     ],
     "12. Checkpoint - artifacts complete, workflows reviewed": [
@@ -146,6 +350,11 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480774
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767066013
       }
     ],
     "13. Implement the shared artifact-parsing model for the test harness": [
@@ -153,6 +362,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480864
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765724544
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790766228389
       }
     ],
     "14.1 Property 1 test — subnet CIDR layout non-overlapping and complete per AZ": [
@@ -160,6 +379,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757480947
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767073788
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767591493
       }
     ],
     "14.2 Property 2 test — every import resolves to a produced export": [
@@ -167,6 +396,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481024
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767598841
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767724981
       }
     ],
     "14.3 Property 3 test — every export name is environment-prefixed": [
@@ -174,6 +413,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481094
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767600093
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767725948
       }
     ],
     "14.4 Property 4 test — export names unique within an environment": [
@@ -181,6 +430,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481147
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767601214
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767727607
       }
     ],
     "14.5 Property 5 test — Fargate CPU/memory accepted iff valid": [
@@ -188,6 +447,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481210
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767075180
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767348278
       }
     ],
     "14.6 Property 6 test — autoscaling bounds accepted iff min <= max": [
@@ -195,6 +464,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481266
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767076525
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767348639
       }
     ],
     "14.7 Property 7 test — deployed templates have matching param files per env": [
@@ -202,6 +481,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481331
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767602839
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767728709
       }
     ],
     "14.8 Property 8 test — param-file keys correspond to declared parameters": [
@@ -209,6 +498,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481400
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767603516
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767729616
       }
     ],
     "14.9 Property 9 test — deploy order is a valid topological order": [
@@ -216,6 +515,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481517
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767937494
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790768169316
       }
     ],
     "14.10 Property 10 test — dispatch workflow targets only the service stack": [
@@ -223,6 +532,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481601
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767938390
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790768167188
       }
     ],
     "14.11 Property 11 test — dispatch payload validation accepts iff complete and valid": [
@@ -230,6 +549,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481678
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767939851
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790768164437
       }
     ],
     "15.1 Write snapshot/synth structural-presence tests": [
@@ -237,6 +566,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481735
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767735162
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767929692
       }
     ],
     "15.2 Write edge-case parameter-validation tests": [
@@ -244,6 +583,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481797
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767077265
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767349873
       }
     ],
     "15.3 Write workflow example/control-flow tests": [
@@ -251,6 +600,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481862
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767941239
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790768165766
       }
     ],
     "16. Wire local tooling and validate cross-stack export naming consistency": [
@@ -258,6 +617,16 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481918
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790767942282
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790768168215
       }
     ],
     "17. Final checkpoint - all tests pass": [
@@ -265,6 +634,72 @@
         "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
         "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
         "timestamp": 1790757481974
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790768178274
+      },
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790768208354
+      }
+    ],
+    "2. Author the VPC template (`templates/00-vpc.yml`)": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760160803
+      }
+    ],
+    "3. Author the Security Groups template (`templates/01-security-groups.yml`)": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760296839
+      }
+    ],
+    "4. Author the ALB template (`templates/02-alb.yml`)": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760642181
+      }
+    ],
+    "5. Author the ECS Cluster template (`templates/03-ecs-cluster.yml`)": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790760751745
+      }
+    ],
+    "6. Author the ECS Service template (`templates/04-ecs-service.yml`)": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790765221272
+      }
+    ],
+    "8. Author per-environment parameter files": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790766437666
+      }
+    ],
+    "15. Implement example, edge-case, and snapshot tests": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790768165826
+      }
+    ],
+    "14. Implement property-based tests over the artifact model": [
+      {
+        "executionId": "92e9f6e4-3596-43db-b710-0325f81fda64",
+        "chatSessionId": "sess_0134297d-86e4-41ab-b192-d7bb869ddb43",
+        "timestamp": 1790768169431
       }
     ]
   }
