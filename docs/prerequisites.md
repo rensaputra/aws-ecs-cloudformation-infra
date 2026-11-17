@@ -15,7 +15,7 @@ Set these per environment under **Settings → Environments → (env) → Variab
 
 | Variable | Description | Example |
 |---|---|---|
-| `AWS_REGION` | AWS region where all stacks are deployed | `us-east-1` |
+| `AWS_REGION` | AWS region where all stacks are deployed | `ap-southeast-2` |
 
 Steps:
 
@@ -35,7 +35,7 @@ Set these under **Settings → Variables → Actions → Repository variables**.
 
 | Variable | Description | Example |
 |---|---|---|
-| `AWS_REGION` | Same region as the environment variable above | `us-east-1` |
+| `AWS_REGION` | Same region as the environment variable above | `ap-southeast-2` |
 | `AWS_DEPLOY_ROLE_ARN` | ARN of the IAM role to assume for the dispatch workflow | `arn:aws:iam::<account-id>:role/<role-name>` |
 
 > **Note:** `deploy-infra.yml` reads `AWS_DEPLOY_ROLE_ARN` from an environment
@@ -60,6 +60,32 @@ The deploy workflows authenticate to AWS via OIDC federation — no long-lived
 access keys are stored in GitHub. You create an IAM role in your AWS account
 and store its ARN in both locations described in sections 2 and 3.
 
+### How OIDC authentication works
+
+```mermaid
+sequenceDiagram
+    actor Dev as Developer
+    participant GH as GitHub Actions
+    participant GHOIDC as GitHub OIDC Provider<br/>(token.actions.githubusercontent.com)
+    participant STS as AWS STS
+    participant AWS as AWS Services
+
+    Dev->>GH: Trigger workflow
+    GH->>GHOIDC: Request a short-lived token<br/>(proves "I am this repo/workflow")
+    GHOIDC-->>GH: Returns a signed JWT token
+    GH->>STS: "I want to assume this IAM role"<br/>(sends the JWT token)
+    STS->>GHOIDC: Verify the token is genuine
+    GHOIDC-->>STS: Token is valid ✓
+    STS->>STS: Check IAM role trust policy<br/>(does it allow this repo?)
+    STS-->>GH: Returns temporary AWS credentials<br/>(expire in ~1 hour)
+    GH->>AWS: Deploy CloudFormation stacks<br/>(using temporary credentials)
+    AWS-->>GH: Deployment complete ✓
+```
+
+No passwords or long-lived access keys are stored anywhere. GitHub proves its
+identity with a signed token, AWS verifies it, and the temporary credentials
+expire automatically after the workflow finishes.
+
 ### Add the GitHub OIDC provider (once per account)
 
 ```bash
@@ -71,72 +97,30 @@ aws iam create-open-id-connect-provider \
 
 ### Trust policy
 
-Replace `<account-id>` and `<org>/<repo>` with your values.
+Repositories created after **July 15, 2026** (or opted in to immutable subject
+claims) include numeric owner and repository IDs in the OIDC `sub` claim.
 
-GitHub changed the format of the OIDC `sub` claim for repositories created
-after **July 15, 2026**, or that have opted in to immutable subject claims.
-The new format appends numeric owner and repository IDs:
+The `sub` format differs depending on whether you use a **personal account** or
+a **GitHub organisation**:
 
-| Format | When it applies |
+| Account type | `sub` format |
 |---|---|
-| `repo:<org>/<repo>:*` | Repositories created before July 15, 2026 (default) |
-| `repo:<org>@<orgId>/<repo>@<repoId>:*` | Repositories created after July 15, 2026, or opted in to immutable subject claims |
+| Personal | `repo:<username>@<userId>/<repo>@<repoId>:*` |
+| Organisation | `repo:<org>@<orgId>/<repo>@<repoId>:*` |
 
-Check which format your repository uses by decoding a token from a workflow
-run, or by checking **Settings → Code and automation → Actions → General →
-OIDC subject claim customization**.
+#### Step 1 — Find your numeric IDs
 
-#### Legacy format (pre-July 2026)
+**Personal account:**
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:<org>/<repo>:*"
-        }
-      }
-    }
-  ]
-}
+```bash
+# user ID
+curl -s https://api.github.com/users/<username> | jq .id
+
+# repo ID
+curl -s https://api.github.com/repos/<username>/<repo> | jq .id
 ```
 
-#### Immutable subject claims format (post-July 2026 or opted in)
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:<org>@<orgId>/<repo>@<repoId>:*"
-        }
-      }
-    }
-  ]
-}
-```
-
-Find your numeric `<orgId>` and `<repoId>` from the GitHub API:
+**Organisation:**
 
 ```bash
 # org ID
@@ -146,15 +130,43 @@ curl -s https://api.github.com/orgs/<org> | jq .id
 curl -s https://api.github.com/repos/<org>/<repo> | jq .id
 ```
 
+#### Step 2 — Create the trust policy
+
+Replace `<account-id>` with your AWS account ID and the `sub` value with the
+format that matches your account type.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:<owner>@<ownerId>/<repo>@<repoId>:*"
+        }
+      }
+    }
+  ]
+}
+```
+
 The `sub` condition uses `*` to cover both workflows — `deploy-infra.yml`
 (which sends `environment:<env>`) and `deploy-dispatch.yml` (which sends no
 environment). To lock down each to its own role, create two roles with more
 specific `sub` conditions:
 
-| Workflow | Legacy `sub` value | Immutable `sub` value |
-|---|---|---|
-| `deploy-infra.yml` | `repo:<org>/<repo>:environment:dev` | `repo:<org>@<orgId>/<repo>@<repoId>:environment:dev` |
-| `deploy-dispatch.yml` | `repo:<org>/<repo>:ref:refs/heads/main` | `repo:<org>@<orgId>/<repo>@<repoId>:ref:refs/heads/main` |
+| Workflow | `sub` condition value |
+|---|---|
+| `deploy-infra.yml` | `repo:<owner>@<ownerId>/<repo>@<repoId>:environment:dev` |
+| `deploy-dispatch.yml` | `repo:<owner>@<ownerId>/<repo>@<repoId>:ref:refs/heads/main` |
 
 ### Permissions policy
 
