@@ -19,18 +19,18 @@ Parameters:
   VpcCidr:
     Type: String
     # NOTE: Requirement 1.1 states a /16-/28 range, but this template narrows it
-    # to /16-/26 because the fixed six-/29 subnet derivation below requires at
-    # least a /26 VPC (a /27 or /28 VPC cannot hold six /29 subnets, pushing
+    # to /16-/21 because the fixed six-/24 subnet derivation below requires at
+    # least a /21 VPC (a /22 or smaller VPC cannot hold six /24 subnets, pushing
     # derived subnets outside the VPC CIDR and violating Requirement 1.3). This
     # narrowing was an explicit user decision.
     Description: >-
       IPv4 CIDR block for the VPC. Must be a syntactically valid IPv4 CIDR with
-      a prefix length between /16 and /26 inclusive.
-    # Octet regex (0-255) x4, then a prefix length restricted to 16-26.
+      a prefix length between /16 and /21 inclusive.
+    # Octet regex (0-255) x4, then a prefix length restricted to 16-21.
     AllowedPattern: >-
-      ^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])/(1[6-9]|2[0-6])$
+      ^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])/(1[6-9]|2[0-1])$
     ConstraintDescription: >-
-      Must be a valid IPv4 CIDR block with a prefix length between /16 and /26
+      Must be a valid IPv4 CIDR block with a prefix length between /16 and /21
       (for example, 10.0.0.0/16).
 
   AvailabilityZoneCount:
@@ -153,10 +153,10 @@ Resources:
 
   # --- Public subnets ------------------------------------------------------
   # Subnet CIDRs are derived from the VPC CIDR with Fn::Cidr so the six blocks
-  # (3 public + 3 private) are guaranteed non-overlapping. 3 new bits => 8
-  # equal /29 blocks; we consume 6 of them. Six /29 subnets (48 addresses)
-  # require the VPC to be at least a /26, so the VpcCidr parameter above only
-  # accepts prefixes /16-/26. A smaller VPC (/27 or /28) cannot contain the
+  # (3 public + 3 private) are guaranteed non-overlapping. 8 host bits => 256
+  # equal /24 blocks; we consume 6 of them. Six /24 subnets (1536 addresses)
+  # require the VPC to be at least a /21, so the VpcCidr parameter above only
+  # accepts prefixes /16-/21. A smaller VPC (/22 or narrower) cannot contain the
   # derived subnets and is rejected at parameter validation time.
   PublicSubnet1:
     Type: AWS::EC2::Subnet
@@ -171,7 +171,7 @@ Resources:
     Properties:
       VpcId: !Ref Vpc
       AvailabilityZone: !Select [0, !GetAZs ""]
-      CidrBlock: !Select [0, !Cidr [!Ref VpcCidr, 6, 3]]
+      CidrBlock: !Select [0, !Cidr [!Ref VpcCidr, 6, 8]]
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
@@ -194,7 +194,7 @@ Resources:
     Properties:
       VpcId: !Ref Vpc
       AvailabilityZone: !Select [1, !GetAZs ""]
-      CidrBlock: !Select [1, !Cidr [!Ref VpcCidr, 6, 3]]
+      CidrBlock: !Select [1, !Cidr [!Ref VpcCidr, 6, 8]]
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
@@ -218,7 +218,7 @@ Resources:
     Properties:
       VpcId: !Ref Vpc
       AvailabilityZone: !Select [2, !GetAZs ""]
-      CidrBlock: !Select [2, !Cidr [!Ref VpcCidr, 6, 3]]
+      CidrBlock: !Select [2, !Cidr [!Ref VpcCidr, 6, 8]]
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
@@ -234,7 +234,7 @@ Resources:
     Properties:
       VpcId: !Ref Vpc
       AvailabilityZone: !Select [0, !GetAZs ""]
-      CidrBlock: !Select [3, !Cidr [!Ref VpcCidr, 6, 3]]
+      CidrBlock: !Select [3, !Cidr [!Ref VpcCidr, 6, 8]]
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
@@ -249,7 +249,7 @@ Resources:
     Properties:
       VpcId: !Ref Vpc
       AvailabilityZone: !Select [1, !GetAZs ""]
-      CidrBlock: !Select [4, !Cidr [!Ref VpcCidr, 6, 3]]
+      CidrBlock: !Select [4, !Cidr [!Ref VpcCidr, 6, 8]]
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
@@ -265,7 +265,7 @@ Resources:
     Properties:
       VpcId: !Ref Vpc
       AvailabilityZone: !Select [2, !GetAZs ""]
-      CidrBlock: !Select [5, !Cidr [!Ref VpcCidr, 6, 3]]
+      CidrBlock: !Select [5, !Cidr [!Ref VpcCidr, 6, 8]]
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
