@@ -7,7 +7,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint:cfn": "cfn-lint templates/",
+    "lint:cfn": "cfn-lint templates/*.yml",
     "scan:cfn": "cfn_nag_scan --input-path templates/",
     "validate": "npm run lint:cfn && npm run scan:cfn && npm run test"
   },
