@@ -1,0 +1,183 @@
+# Destroy Infrastructure: manually triggered teardown of all five infrastructure
+# layers for a chosen environment.
+#
+# Stacks are deleted in strict reverse dependency order:
+#   04-ecs-service -> 03-ecs-cluster -> 02-alb -> 01-security-groups -> 00-vpc
+# so that cross-stack exports are never removed while a consumer stack still
+# references them. Each step is gated on the previous one succeeding.
+#
+# Stacks that do not exist are skipped without error — the workflow is safe to
+# run on a partially deployed or already-destroyed environment.
+name: Destroy Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment to destroy.
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+# OIDC federation requires write access to the id-token; contents:read is kept
+# for consistency even though no templates are checked out at destroy time.
+permissions:
+  id-token: write
+  contents: read
+
+# Prevent overlapping destroys (or a destroy racing a deploy) on the same
+# environment. cancel-in-progress: false ensures a running destroy is never
+# silently cancelled by a second trigger.
+concurrency:
+  group: deploy-infra-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ENVIRONMENT: ${{ inputs.environment }}
+
+jobs:
+  destroy:
+    name: Destroy ${{ inputs.environment }} infrastructure
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Helper used by every delete step: deletes the stack if it exists and
+      # waits for deletion to complete; skips silently if the stack is absent.
+      # Usage: delete_stack <stack-name>
+      #
+      # A stack in DELETE_FAILED state is surfaced as an error so the operator
+      # can resolve stuck resources (e.g. non-empty S3 buckets, retained
+      # deletion policies) before retrying.
+
+      # ---------------------------------------------------------------------
+      # Layer 5: ECS Service (04-ecs-service) — deleted first
+      # ---------------------------------------------------------------------
+      - name: Destroy 04-ecs-service
+        run: |
+          set -euo pipefail
+          STACK="${ENVIRONMENT}-ecs-service"
+
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK}" \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          if [ "${STATUS}" = "DOES_NOT_EXIST" ]; then
+            echo "Stack '${STACK}' does not exist — skipping."
+            exit 0
+          fi
+
+          echo "Deleting stack '${STACK}' (current status: ${STATUS})..."
+          aws cloudformation delete-stack --stack-name "${STACK}"
+          aws cloudformation wait stack-delete-complete --stack-name "${STACK}" \
+          || { echo "::error::Deletion failed or timed out for stack '${STACK}'"; exit 1; }
+          echo "Stack '${STACK}' deleted."
+
+      # ---------------------------------------------------------------------
+      # Layer 4: ECS Cluster (03-ecs-cluster)
+      # ---------------------------------------------------------------------
+      - name: Destroy 03-ecs-cluster
+        run: |
+          set -euo pipefail
+          STACK="${ENVIRONMENT}-ecs-cluster"
+
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK}" \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          if [ "${STATUS}" = "DOES_NOT_EXIST" ]; then
+            echo "Stack '${STACK}' does not exist — skipping."
+            exit 0
+          fi
+
+          echo "Deleting stack '${STACK}' (current status: ${STATUS})..."
+          aws cloudformation delete-stack --stack-name "${STACK}"
+          aws cloudformation wait stack-delete-complete --stack-name "${STACK}" \
+          || { echo "::error::Deletion failed or timed out for stack '${STACK}'"; exit 1; }
+          echo "Stack '${STACK}' deleted."
+
+      # ---------------------------------------------------------------------
+      # Layer 3: ALB (02-alb)
+      # ---------------------------------------------------------------------
+      - name: Destroy 02-alb
+        run: |
+          set -euo pipefail
+          STACK="${ENVIRONMENT}-alb"
+
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK}" \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          if [ "${STATUS}" = "DOES_NOT_EXIST" ]; then
+            echo "Stack '${STACK}' does not exist — skipping."
+            exit 0
+          fi
+
+          echo "Deleting stack '${STACK}' (current status: ${STATUS})..."
+          aws cloudformation delete-stack --stack-name "${STACK}"
+          aws cloudformation wait stack-delete-complete --stack-name "${STACK}" \
+          || { echo "::error::Deletion failed or timed out for stack '${STACK}'"; exit 1; }
+          echo "Stack '${STACK}' deleted."
+
+      # ---------------------------------------------------------------------
+      # Layer 2: Security Groups (01-security-groups)
+      # ---------------------------------------------------------------------
+      - name: Destroy 01-security-groups
+        run: |
+          set -euo pipefail
+          STACK="${ENVIRONMENT}-security-groups"
+
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK}" \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          if [ "${STATUS}" = "DOES_NOT_EXIST" ]; then
+            echo "Stack '${STACK}' does not exist — skipping."
+            exit 0
+          fi
+
+          echo "Deleting stack '${STACK}' (current status: ${STATUS})..."
+          aws cloudformation delete-stack --stack-name "${STACK}"
+          aws cloudformation wait stack-delete-complete --stack-name "${STACK}" \
+          || { echo "::error::Deletion failed or timed out for stack '${STACK}'"; exit 1; }
+          echo "Stack '${STACK}' deleted."
+
+      # ---------------------------------------------------------------------
+      # Layer 1: VPC (00-vpc) — deleted last
+      # ---------------------------------------------------------------------
+      - name: Destroy 00-vpc
+        run: |
+          set -euo pipefail
+          STACK="${ENVIRONMENT}-vpc"
+
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK}" \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          if [ "${STATUS}" = "DOES_NOT_EXIST" ]; then
+            echo "Stack '${STACK}' does not exist — skipping."
+            exit 0
+          fi
+
+          echo "Deleting stack '${STACK}' (current status: ${STATUS})..."
+          aws cloudformation delete-stack --stack-name "${STACK}"
+          aws cloudformation wait stack-delete-complete --stack-name "${STACK}" \
+          || { echo "::error::Deletion failed or timed out for stack '${STACK}'"; exit 1; }
+          echo "Stack '${STACK}' deleted."
