@@ -125,7 +125,18 @@ jobs:
             exit 1
           fi
 
+          # Fetch CertificateArn from SSM Parameter Store so it is never
+          # stored in the repository. Fail fast if the parameter is missing.
+          CERT_ARN=$(aws ssm get-parameter \
+            --name "/${ENVIRONMENT}/alb/certificate-arn" \
+            --query "Parameter.Value" \
+            --output text) \
+          || { echo "::error::SSM parameter '/${ENVIRONMENT}/alb/certificate-arn' not found"; exit 1; }
+
           mapfile -t OVERRIDES < <(jq -r 'to_entries[] | "\(.key)=\(.value)"' "${PARAM_FILE}")
+
+          # Append the SSM-sourced value, overriding any placeholder in the file.
+          OVERRIDES+=("CertificateArn=${CERT_ARN}")
 
           echo "Deploying template '${TEMPLATE}' as stack '${ENVIRONMENT}-alb'..."
           aws cloudformation deploy \
