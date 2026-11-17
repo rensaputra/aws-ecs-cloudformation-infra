@@ -97,13 +97,30 @@ aws iam create-open-id-connect-provider \
 
 ### Trust policy
 
-Replace `<account-id>`, `<org>`, `<repo>`, `<orgId>`, and `<repoId>` with your values.
-
 Repositories created after **July 15, 2026** (or opted in to immutable subject
-claims) include numeric owner and repository IDs in the `sub` claim. Use the
-format below.
+claims) include numeric owner and repository IDs in the OIDC `sub` claim.
 
-Find your numeric IDs from the GitHub API:
+The `sub` format differs depending on whether you use a **personal account** or
+a **GitHub organisation**:
+
+| Account type | `sub` format |
+|---|---|
+| Personal | `repo:<username>@<userId>/<repo>@<repoId>:*` |
+| Organisation | `repo:<org>@<orgId>/<repo>@<repoId>:*` |
+
+#### Step 1 — Find your numeric IDs
+
+**Personal account:**
+
+```bash
+# user ID
+curl -s https://api.github.com/users/<username> | jq .id
+
+# repo ID
+curl -s https://api.github.com/repos/<username>/<repo> | jq .id
+```
+
+**Organisation:**
 
 ```bash
 # org ID
@@ -112,6 +129,11 @@ curl -s https://api.github.com/orgs/<org> | jq .id
 # repo ID
 curl -s https://api.github.com/repos/<org>/<repo> | jq .id
 ```
+
+#### Step 2 — Create the trust policy
+
+Replace `<account-id>` with your AWS account ID and the `sub` value with the
+format that matches your account type.
 
 ```json
 {
@@ -128,7 +150,7 @@ curl -s https://api.github.com/repos/<org>/<repo> | jq .id
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:<org>@<orgId>/<repo>@<repoId>:*"
+          "token.actions.githubusercontent.com:sub": "repo:<owner>@<ownerId>/<repo>@<repoId>:*"
         }
       }
     }
@@ -143,8 +165,8 @@ specific `sub` conditions:
 
 | Workflow | `sub` condition value |
 |---|---|
-| `deploy-infra.yml` | `repo:<org>@<orgId>/<repo>@<repoId>:environment:dev` |
-| `deploy-dispatch.yml` | `repo:<org>@<orgId>/<repo>@<repoId>:ref:refs/heads/main` |
+| `deploy-infra.yml` | `repo:<owner>@<ownerId>/<repo>@<repoId>:environment:dev` |
+| `deploy-dispatch.yml` | `repo:<owner>@<ownerId>/<repo>@<repoId>:ref:refs/heads/main` |
 
 ### Permissions policy
 
