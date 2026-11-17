@@ -436,7 +436,7 @@ Resources:
         rules_to_suppress:
           - id: W28
             reason: >-
-              The role name is deterministic (${Environment}-${ServiceName}-exec)
+              The role name is deterministic (env-service-exec)
               so it can be referenced in trust policies and audit tooling outside
               this stack without requiring a stack output lookup. The name changes
               only when the environment or service name changes, which is a
@@ -478,7 +478,7 @@ Resources:
         rules_to_suppress:
           - id: W28
             reason: >-
-              The role name is deterministic (${Environment}-${ServiceName}-task)
+              The role name is deterministic (env-service-task)
               so it can be referenced in trust policies and audit tooling outside
               this stack without requiring a stack output lookup. The name changes
               only when the environment or service name changes, which is a
