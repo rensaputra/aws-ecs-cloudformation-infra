@@ -36,6 +36,15 @@ Each template has one parameter file per environment under `parameters/dev/` and
 - `.github/workflows/cfn-validate.yml` — runs `cfn-lint` + `cfn-nag` on pull requests.
 - `.github/workflows/deploy-infra.yml` — manual (`workflow_dispatch`) deploy of layers 1–4.
 - `.github/workflows/deploy-dispatch.yml` — `repository_dispatch` deploy of only the service stack.
+- `.github/workflows/destroy-infra.yml` — manual (`workflow_dispatch`) teardown of all five stacks in an environment.
+
+#### destroy-infra
+
+Triggered manually from **Actions → Destroy Infrastructure → Run workflow**. Select the target environment (`dev` or `prod`) and confirm.
+
+Stacks are deleted in reverse dependency order — service → cluster → ALB → security groups → VPC — so no cross-stack export is removed while a consumer still references it. Stacks that do not exist are skipped, making the workflow safe to run on partially deployed or already-destroyed environments.
+
+> **Warning:** This permanently deletes all infrastructure in the selected environment, including the VPC and all networking resources. There is no undo.
 
 ## Repository layout
 

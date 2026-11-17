@@ -183,8 +183,12 @@ the SSM fetch for the ALB certificate.
       "Action": [
         "cloudformation:CreateStack",
         "cloudformation:UpdateStack",
+        "cloudformation:DeleteStack",
         "cloudformation:DescribeStacks",
         "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStackResource",
+        "cloudformation:DescribeStackResources",
+        "cloudformation:ListStackResources",
         "cloudformation:DescribeChangeSet",
         "cloudformation:CreateChangeSet",
         "cloudformation:ExecuteChangeSet",
