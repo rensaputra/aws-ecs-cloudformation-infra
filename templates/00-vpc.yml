@@ -65,6 +65,76 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
+  # --- VPC Flow Log --------------------------------------------------------
+  # Publishes all ACCEPT/REJECT traffic metadata to CloudWatch Logs for
+  # security audit and network troubleshooting (addresses W60).
+  FlowLogRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: >-
+              The VPC flow log delivery role uses a * resource on CloudWatch
+              Logs actions because the log group ARN is not known at role
+              creation time (the role and log group are created in the same
+              stack). The scope is limited to the five CloudWatch Logs actions
+              required for flow log delivery; no other services or actions are
+              granted.
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: flow-log-write
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                Resource: "*"
+
+  FlowLogGroup:
+    Type: AWS::Logs::LogGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: >-
+              VPC flow logs contain network metadata (IPs, ports, protocol),
+              not application-level secrets. Encrypting with a CMK would
+              require the VPC Flow Logs service principal to have kms:GenerateDataKey
+              access, adding operational complexity. The log group uses
+              CloudWatch's default service-managed encryption, which is
+              sufficient for this data class.
+    Properties:
+      LogGroupName: !Sub "/vpc/${Environment}-flow-logs"
+      RetentionInDays: 90
+
+  VpcFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      ResourceId: !Ref Vpc
+      ResourceType: VPC
+      TrafficType: ALL
+      LogDestinationType: cloud-watch-logs
+      LogGroupName: !Ref FlowLogGroup
+      DeliverLogsPermissionArn: !GetAtt FlowLogRole.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-vpc-flow-log"
+        - Key: Environment
+          Value: !Ref Environment
+
   # --- Internet Gateway ----------------------------------------------------
   InternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -90,6 +160,14 @@ Resources:
   # derived subnets and is rejected at parameter validation time.
   PublicSubnet1:
     Type: AWS::EC2::Subnet
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W33
+            reason: >-
+              Public subnets intentionally set MapPublicIpOnLaunch so the ALB
+              and NAT gateways placed here receive internet-routable addresses
+              via the Internet Gateway.
     Properties:
       VpcId: !Ref Vpc
       AvailabilityZone: !Select [0, !GetAZs ""]
@@ -105,6 +183,14 @@ Resources:
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W33
+            reason: >-
+              Public subnets intentionally set MapPublicIpOnLaunch so the ALB
+              and NAT gateways placed here receive internet-routable addresses
+              via the Internet Gateway.
     Properties:
       VpcId: !Ref Vpc
       AvailabilityZone: !Select [1, !GetAZs ""]
@@ -121,6 +207,14 @@ Resources:
   PublicSubnet3:
     Type: AWS::EC2::Subnet
     Condition: HasThirdAz
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W33
+            reason: >-
+              Public subnets intentionally set MapPublicIpOnLaunch so the ALB
+              and NAT gateways placed here receive internet-routable addresses
+              via the Internet Gateway.
     Properties:
       VpcId: !Ref Vpc
       AvailabilityZone: !Select [2, !GetAZs ""]

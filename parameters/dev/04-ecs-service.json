@@ -12,5 +12,6 @@
   "TargetCpuUtilization": "60",
   "HealthCheckPath": "/",
   "ListenerRulePriority": "100",
-  "LogRetentionInDays": "30"
+  "LogRetentionInDays": "30",
+  "LogGroupKmsKeyId": ""
 }

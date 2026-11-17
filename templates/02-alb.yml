@@ -37,6 +37,21 @@ Parameters:
       Must be a valid ACM certificate ARN of the form
       arn:aws:acm:<region>:<account-id>:certificate/<certificate-id>.
 
+  AccessLogsBucketName:
+    Type: String
+    Description: >-
+      Name of an existing S3 bucket that will receive ALB access logs. The
+      bucket must already exist and have the correct bucket policy granting the
+      regional ELB service account write access. Leave empty to disable access
+      logging (not recommended for production).
+    Default: ""
+
+# ---------------------------------------------------------------------------
+# Conditions
+# ---------------------------------------------------------------------------
+Conditions:
+  AccessLoggingEnabled: !Not [!Equals [!Ref AccessLogsBucketName, ""]]
+
 # ---------------------------------------------------------------------------
 # Resources (Task 4.2) - Requirements 3.1, 3.2, 3.3, 3.5
 # The public subnet list and ALB security group are imported from the VPC and
@@ -53,6 +68,21 @@ Resources:
   # 3.2).
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              The ALB is given an explicit name so Route 53 alias records
+              outside this stack can reference a predictable DNS name.
+              Accepting an auto-generated name would break those records on
+              every stack replacement.
+          - id: W52
+            reason: >-
+              Access logging is opt-in via the AccessLogsBucketName parameter.
+              When a bucket name is supplied the LoadBalancerAttributes enable
+              logging to that bucket; when left empty logging is disabled.
+              Callers that require access logs must supply the parameter.
     Properties:
       Name: !Sub "${Environment}-alb"
       Type: application
@@ -63,6 +93,19 @@ Resources:
         - Fn::ImportValue: !Sub "${Environment}-PublicSubnetIds"
       SecurityGroups:
         - Fn::ImportValue: !Sub "${Environment}-AlbSecurityGroupId"
+      LoadBalancerAttributes:
+        - Key: access_logs.s3.enabled
+          Value: !If [AccessLoggingEnabled, "true", "false"]
+        - !If
+          - AccessLoggingEnabled
+          - Key: access_logs.s3.bucket
+            Value: !Ref AccessLogsBucketName
+          - !Ref AWS::NoValue
+        - !If
+          - AccessLoggingEnabled
+          - Key: access_logs.s3.prefix
+            Value: !Sub "${Environment}-alb"
+          - !Ref AWS::NoValue
       Tags:
         - Key: Name
           Value: !Sub "${Environment}-alb"
@@ -96,6 +139,15 @@ Resources:
   # placeholders (Requirement 3.5).
   HttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W56
+            reason: >-
+              The HTTP listener on port 80 is intentional. Its only action is a
+              301 redirect to HTTPS on 443; it never terminates or proxies
+              plaintext traffic. HTTPS on port 80 is not a valid ALB
+              configuration.
     Properties:
       LoadBalancerArn: !Ref LoadBalancer
       Port: 80

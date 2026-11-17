@@ -85,6 +85,21 @@ Resources:
   # below (Requirement 2.3).
   EcsServiceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W40
+            reason: >-
+              ECS tasks require unrestricted egress (IpProtocol -1) to reach
+              ECR for image pulls, CloudWatch Logs, AWS Service Connect
+              endpoints, and any external dependencies. Locking to specific
+              ports or CIDRs would break task startup.
+          - id: W5
+            reason: >-
+              Egress to 0.0.0.0/0 is intentional. ECS Fargate tasks must reach
+              ECR, CloudWatch Logs, and AWS API endpoints whose IPs are not
+              static. Traffic is confined to private subnets and exits only
+              through the NAT gateway.
     Properties:
       GroupDescription: >-
         ECS service security group: allows inbound only from the ALB security
