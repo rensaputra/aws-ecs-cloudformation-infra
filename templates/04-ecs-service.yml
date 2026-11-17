@@ -194,6 +194,20 @@ Parameters:
       - 180
       - 365
 
+  LogGroupKmsKeyId:
+    Type: String
+    Description: >-
+      ARN of a KMS customer-managed key (CMK) used to encrypt the CloudWatch
+      log group at rest. Leave empty to use the default CloudWatch
+      service-managed encryption (acceptable for non-sensitive log data).
+    Default: ""
+
+# ---------------------------------------------------------------------------
+# Conditions
+# ---------------------------------------------------------------------------
+Conditions:
+  HasKmsKey: !Not [!Equals [!Ref LogGroupKmsKeyId, ""]]
+
 # ---------------------------------------------------------------------------
 # Rules (Task 6.1) - Requirements 5.8, 5.9
 # Rule functions run at validation time, before any resource is created. The
@@ -396,9 +410,20 @@ Resources:
   # definition references it.
   LogGroup:
     Type: AWS::Logs::LogGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: >-
+              KMS encryption is optional and controlled by the LogGroupKmsKeyId
+              parameter. When a CMK ARN is supplied the log group is encrypted
+              with it; when left empty the log group uses CloudWatch's default
+              service-managed encryption. Callers that require CMK encryption
+              must supply the parameter.
     Properties:
       LogGroupName: !Sub "/ecs/${Environment}/${ServiceName}"
       RetentionInDays: !Ref LogRetentionInDays
+      KmsKeyId: !If [HasKmsKey, !Ref LogGroupKmsKeyId, !Ref AWS::NoValue]
 
   # --- Task execution role -------------------------------------------------
   # Used by the ECS agent to pull the image from ECR and write container logs
@@ -406,6 +431,16 @@ Resources:
   # log-stream permissions for this service's log group (least privilege).
   TaskExecutionRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              The role name is deterministic (${Environment}-${ServiceName}-exec)
+              so it can be referenced in trust policies and audit tooling outside
+              this stack without requiring a stack output lookup. The name changes
+              only when the environment or service name changes, which is a
+              deliberate replacement, not an accidental one.
     Properties:
       RoleName: !Sub "${Environment}-${ServiceName}-exec"
       AssumeRolePolicyDocument:
@@ -438,6 +473,16 @@ Resources:
   # (least privilege); grant application-specific permissions here as needed.
   TaskRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              The role name is deterministic (${Environment}-${ServiceName}-task)
+              so it can be referenced in trust policies and audit tooling outside
+              this stack without requiring a stack output lookup. The name changes
+              only when the environment or service name changes, which is a
+              deliberate replacement, not an accidental one.
     Properties:
       RoleName: !Sub "${Environment}-${ServiceName}-task"
       AssumeRolePolicyDocument:
