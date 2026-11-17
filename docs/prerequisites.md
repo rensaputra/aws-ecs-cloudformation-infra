@@ -182,13 +182,66 @@ the SSM fetch for the ALB certificate.
 > simplicity. For production, scope each action to only the resources your
 > stacks create (by ARN prefix or tag condition).
 
+### Store the role ARN in GitHub
+
+1. Go to **Settings → Environments**, select the `dev` environment.
+2. Under **Environment secrets**, add `AWS_DEPLOY_ROLE_ARN`:
+   ```
+   arn:aws:iam::<account-id>:role/<role-name>
+   ```
+3. Repeat for `prod` (recommended to use a separate role per environment).
+4. Also add `AWS_DEPLOY_ROLE_ARN` as a repository variable (section 2) for `deploy-dispatch.yml`.
+
 ---
 
-## 5. SSM parameters
+## 5. ACM certificate
+
+The ALB stack (`02-alb`) requires an HTTPS certificate. The certificate ARN is
+stored in SSM (section 6) so it is never committed to the repository. The
+certificate must be in the **same region** as the ALB.
+
+### Option A: Request a new public certificate (recommended)
+
+1. Open the [ACM console](https://console.aws.amazon.com/acm/) in your target region.
+2. Click **Request a certificate** → **Request a public certificate**.
+3. Enter your domain name, e.g. `api.example.com` or `*.example.com` for a wildcard.
+4. Choose a validation method:
+   - **DNS validation** (recommended) — add the CNAME record ACM shows to your DNS zone.
+   - **Email validation** — an email is sent to the domain's registered contacts.
+5. Complete validation. The certificate status changes to **Issued**.
+6. Copy the ARN from the certificate detail page:
+   ```
+   arn:aws:acm:<region>:<account-id>:certificate/<uuid>
+   ```
+
+### Option B: Import an existing certificate
+
+If you already have a certificate from an external CA:
+
+1. In the ACM console, click **Import a certificate**.
+2. Paste your certificate body, private key, and certificate chain.
+3. Click **Import** and copy the ARN from the detail page.
+
+### Using the CLI
+
+```bash
+# Request a certificate
+aws acm request-certificate \
+  --domain-name api.example.com \
+  --validation-method DNS \
+  --region <region>
+
+# List existing certificates to find the ARN
+aws acm list-certificates --region <region>
+```
+
+---
+
+## 6. SSM parameters
 
 The `Deploy 02-alb` step fetches the certificate ARN from SSM at deploy time
-so it is never stored in the repository. Create the parameter before running
-the workflow.
+so it is never stored in the repository. Create the parameter after obtaining
+the ARN from section 5.
 
 | Environment | SSM Parameter Path |
 |---|---|
@@ -203,12 +256,9 @@ aws ssm put-parameter \
   --region <region>
 ```
 
-See [`alb-prerequisites.md`](./alb-prerequisites.md) for how to obtain the
-certificate ARN.
-
 ---
 
-## 6. ECR repository
+## 7. ECR repository
 
 The ECS service stack (`04-ecs-service`) pulls a container image from ECR. The
 repository must exist before the service stack is deployed.
@@ -239,7 +289,7 @@ ID before any manual deployment that reads from the file directly:
 
 ---
 
-## 7. Application Auto Scaling service-linked role
+## 8. Application Auto Scaling service-linked role
 
 The ECS service stack creates an auto scaling target that references the
 `AWSServiceRoleForApplicationAutoScaling_ECSService` service-linked role. AWS
@@ -252,7 +302,7 @@ aws iam create-service-linked-role \
   --aws-service-name ecs.application-autoscaling.amazonaws.com
 ```
 
-You can check whether it already exists with:
+Check whether it already exists:
 
 ```bash
 aws iam get-role \
@@ -261,14 +311,66 @@ aws iam get-role \
 
 ---
 
-## 8. ALB access logs bucket (optional)
+## 9. ALB access logs bucket (optional)
 
 Both `parameters/dev/02-alb.json` and `parameters/prod/02-alb.json` leave
 `AccessLogsBucketName` empty, which disables ALB access logging. This is
 intentional for dev. For prod, it is strongly recommended to enable it.
 
-To create the bucket and enable logging, see [`alb-prerequisites.md`](./alb-prerequisites.md),
-then set the bucket name in `parameters/prod/02-alb.json`:
+The bucket must be in the **same region** as the ALB, and requires a bucket
+policy that grants the ALB service permission to write logs.
+
+### Step 1 — Create the bucket
+
+```bash
+aws s3api create-bucket \
+  --bucket my-alb-access-logs-prod \
+  --region <region> \
+  --create-bucket-configuration LocationConstraint=<region>
+```
+
+> Skip `--create-bucket-configuration` if your region is `us-east-1`.
+
+### Step 2 — Block public access
+
+```bash
+aws s3api put-public-access-block \
+  --bucket my-alb-access-logs-prod \
+  --public-access-block-configuration \
+    "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+```
+
+### Step 3 — Attach the ALB logging bucket policy
+
+The ALB service account ID is region-specific; find yours in the
+[AWS docs](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/enable-access-logging.html#attach-bucket-policy).
+Replace `<elb-account-id>`, `<account-id>`, and `<bucket-name>` with your values.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::<elb-account-id>:root"
+      },
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::<bucket-name>/AWSLogs/<account-id>/*"
+    }
+  ]
+}
+```
+
+Save this as `alb-logs-policy.json`, then apply it:
+
+```bash
+aws s3api put-bucket-policy \
+  --bucket my-alb-access-logs-prod \
+  --policy file://alb-logs-policy.json
+```
+
+### Step 4 — Update the parameter file
 
 ```json
 "AccessLogsBucketName": "my-alb-access-logs-prod"
@@ -276,7 +378,7 @@ then set the bucket name in `parameters/prod/02-alb.json`:
 
 ---
 
-## 9. CloudWatch log group encryption (optional)
+## 10. CloudWatch log group encryption (optional)
 
 The ECS service stack accepts an optional KMS CMK ARN via `LogGroupKmsKeyId`
 in `parameters/<env>/04-ecs-service.json`. Leaving it empty (the default) uses
@@ -305,6 +407,9 @@ To enable CMK encryption:
 
 - [Configuring OpenID Connect in Amazon Web Services](https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
 - [AWS — Creating OIDC identity providers](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html)
+- [ACM — Request a public certificate](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html)
+- [ACM — Import a certificate](https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html)
 - [SSM Parameter Store pricing](https://aws.amazon.com/systems-manager/pricing/)
 - [AWS — Service-linked roles for Application Auto Scaling](https://docs.aws.amazon.com/autoscaling/application/userguide/application-auto-scaling-service-linked-roles.html)
-- [AWS — ALB access logging](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/enable-access-logging.html)
+- [ALB — Enable access logging](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/enable-access-logging.html)
+- [ALB service account IDs by region](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/enable-access-logging.html#attach-bucket-policy)
