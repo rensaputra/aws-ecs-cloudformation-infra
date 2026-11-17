@@ -15,14 +15,14 @@ import fc from "fast-check";
  * blocks are pairwise non-overlapping and contained within the VPC CIDR.
  *
  * `templates/00-vpc.yml` derives subnet CIDRs with:
- *   PublicSubnet{N}:  CidrBlock: !Select [N-1, !Cidr [!Ref VpcCidr, 6, 3]]  (indices 0-2)
- *   PrivateSubnet{N}: CidrBlock: !Select [N+2, !Cidr [!Ref VpcCidr, 6, 3]]  (indices 3-5)
+ *   PublicSubnet{N}:  CidrBlock: !Select [N-1, !Cidr [!Ref VpcCidr, 6, 8]]  (indices 0-2)
+ *   PrivateSubnet{N}: CidrBlock: !Select [N+2, !Cidr [!Ref VpcCidr, 6, 8]]  (indices 3-5)
  *
  * CloudFormation is not executed here, so the Fn::Cidr derivation is replicated
  * in TypeScript below. Per the AWS Fn::Cidr semantics, `Fn::Cidr [ipBlock,
  * count, cidrBits]` returns `count` CIDR blocks, each with a subnet mask of
  * `32 - cidrBits` for IPv4 (cidrBits is the number of host/subnet bits, the
- * inverse of the mask). With cidrBits=3 each derived subnet is a /29, and the
+ * inverse of the mask). With cidrBits=8 each derived subnet is a /24, and the
  * `count` blocks are laid out contiguously from the base of the VPC CIDR:
  * block i starts at base + i * 2^cidrBits.
  */
@@ -109,14 +109,14 @@ function cidrRange(cidr: string): { start: number; end: number } {
 
 /**
  * Derive the public/private subnet CIDRs exactly as templates/00-vpc.yml does:
- * `!Cidr [VpcCidr, 6, 3]` with public = indices 0..azCount-1 and
+ * `!Cidr [VpcCidr, 6, 8]` with public = indices 0..azCount-1 and
  * private = indices 3..3+azCount-1.
  */
 function deriveSubnets(vpcCidr: string, azCount: number): {
   public: DerivedCidr[];
   private: DerivedCidr[];
 } {
-  const blocks = fnCidr(vpcCidr, 6, 3);
+  const blocks = fnCidr(vpcCidr, 6, 8);
   const publicSubnets = blocks.slice(0, azCount); // indices 0..azCount-1
   const privateSubnets = blocks.slice(3, 3 + azCount); // indices 3..3+azCount-1
   return { public: publicSubnets, private: privateSubnets };
@@ -127,15 +127,15 @@ function deriveSubnets(vpcCidr: string, azCount: number): {
 // ---------------------------------------------------------------------------
 
 /**
- * Generate a syntactically valid VPC CIDR with a prefix in [16, 26], with the
+ * Generate a syntactically valid VPC CIDR with a prefix in [16, 21], with the
  * base address aligned to the prefix (a proper network address) so it matches
  * the AllowedPattern-constrained inputs the template accepts. The upper bound
- * is /26 because the template derives six /29 subnets, which only fit inside a
- * /26 or larger VPC.
+ * is /21 because the template derives six /24 subnets, which only fit inside a
+ * /21 or larger VPC.
  */
 const vpcCidrArb: fc.Arbitrary<string> = fc
   .record({
-    prefix: fc.integer({ min: 16, max: 26 }),
+    prefix: fc.integer({ min: 16, max: 21 }),
     addr: fc.integer({ min: 0, max: 0xffffffff }),
   })
   .map(({ prefix, addr }) => {

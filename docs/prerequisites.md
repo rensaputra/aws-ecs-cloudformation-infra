@@ -201,7 +201,7 @@ the SSM fetch for the ALB certificate.
       "Resource": "arn:aws:ssm:<region>:<account-id>:parameter/*/alb/*"
     },
     {
-      "Sid": "IAMPassRole",
+      "Sid": "IAMManage",
       "Effect": "Allow",
       "Action": [
         "iam:CreateRole",
@@ -210,7 +210,10 @@ the SSM fetch for the ALB certificate.
         "iam:DeleteRole",
         "iam:GetRole",
         "iam:PassRole",
-        "iam:TagRole"
+        "iam:TagRole",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:GetRolePolicy"
       ],
       "Resource": "*"
     },

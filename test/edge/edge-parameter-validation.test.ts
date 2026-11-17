@@ -89,7 +89,7 @@ function param(template: string, name: string): ParameterConstraints {
 }
 
 // ---------------------------------------------------------------------------
-// Requirement 1.2 — VpcCidr AllowedPattern (valid /16-/26 IPv4 CIDRs only)
+// Requirement 1.2 — VpcCidr AllowedPattern (valid /16-/21 IPv4 CIDRs only)
 // ---------------------------------------------------------------------------
 
 describe("VpcCidr AllowedPattern (templates/00-vpc.yml) — Req 1.2", () => {
@@ -101,20 +101,20 @@ describe("VpcCidr AllowedPattern (templates/00-vpc.yml) — Req 1.2", () => {
 
   it.each([
     "10.0.0.0/16",
-    "10.0.0.0/26", // lower boundary of the accepted prefix range
+    "10.0.0.0/21", // lower boundary of the accepted prefix range
     "172.16.0.0/20",
-    "10.255.255.0/24",
+    "10.255.248.0/21",
     "1.2.3.0/16",
-  ])("accepts valid /16-/26 CIDR %s", (cidr) => {
+  ])("accepts valid /16-/21 CIDR %s", (cidr) => {
     expect(patternAccepts(vpcCidr, cidr)).toBe(true);
   });
 
   it.each([
     "10.0.0.0/15", // prefix too small
-    "192.168.0.0/27", // prefix too large (six /29 subnets no longer fit)
-    "192.168.0.0/28", // prefix too large (six /29 subnets no longer fit)
-    "10.0.0.0/29", // prefix too large
-    "10.0.0.0/32", // host route, out of /16-/26 range
+    "192.168.0.0/22", // prefix too large (six /24 subnets no longer fit)
+    "192.168.0.0/24", // prefix too large (six /24 subnets no longer fit)
+    "10.0.0.0/26", // prefix too large
+    "10.0.0.0/32", // host route, out of /16-/21 range
     "10.0.0.0/8", // out of range
     "256.0.0.0/16", // octet > 255
     "10.0.0.256/16", // octet > 255
