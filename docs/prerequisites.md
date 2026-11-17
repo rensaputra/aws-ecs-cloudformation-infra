@@ -73,6 +73,21 @@ aws iam create-open-id-connect-provider \
 
 Replace `<account-id>` and `<org>/<repo>` with your values.
 
+GitHub changed the format of the OIDC `sub` claim for repositories created
+after **July 15, 2026**, or that have opted in to immutable subject claims.
+The new format appends numeric owner and repository IDs:
+
+| Format | When it applies |
+|---|---|
+| `repo:<org>/<repo>:*` | Repositories created before July 15, 2026 (default) |
+| `repo:<org>@<orgId>/<repo>@<repoId>:*` | Repositories created after July 15, 2026, or opted in to immutable subject claims |
+
+Check which format your repository uses by decoding a token from a workflow
+run, or by checking **Settings → Code and automation → Actions → General →
+OIDC subject claim customization**.
+
+#### Legacy format (pre-July 2026)
+
 ```json
 {
   "Version": "2012-10-17",
@@ -96,15 +111,50 @@ Replace `<account-id>` and `<org>/<repo>` with your values.
 }
 ```
 
+#### Immutable subject claims format (post-July 2026 or opted in)
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:<org>@<orgId>/<repo>@<repoId>:*"
+        }
+      }
+    }
+  ]
+}
+```
+
+Find your numeric `<orgId>` and `<repoId>` from the GitHub API:
+
+```bash
+# org ID
+curl -s https://api.github.com/orgs/<org> | jq .id
+
+# repo ID
+curl -s https://api.github.com/repos/<org>/<repo> | jq .id
+```
+
 The `sub` condition uses `*` to cover both workflows — `deploy-infra.yml`
 (which sends `environment:<env>`) and `deploy-dispatch.yml` (which sends no
 environment). To lock down each to its own role, create two roles with more
 specific `sub` conditions:
 
-| Workflow | `sub` condition value |
-|---|---|
-| `deploy-infra.yml` | `repo:<org>/<repo>:environment:dev` / `environment:prod` |
-| `deploy-dispatch.yml` | `repo:<org>/<repo>:ref:refs/heads/main` |
+| Workflow | Legacy `sub` value | Immutable `sub` value |
+|---|---|---|
+| `deploy-infra.yml` | `repo:<org>/<repo>:environment:dev` | `repo:<org>@<orgId>/<repo>@<repoId>:environment:dev` |
+| `deploy-dispatch.yml` | `repo:<org>/<repo>:ref:refs/heads/main` | `repo:<org>@<orgId>/<repo>@<repoId>:ref:refs/heads/main` |
 
 ### Permissions policy
 
@@ -406,6 +456,7 @@ To enable CMK encryption:
 ## References
 
 - [Configuring OpenID Connect in Amazon Web Services](https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
+- [GitHub — Immutable subject claims (numeric IDs)](https://docs.github.com/en/actions/reference/security/oidc#immutable-subject-claims)
 - [AWS — Creating OIDC identity providers](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html)
 - [ACM — Request a public certificate](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html)
 - [ACM — Import a certificate](https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html)
