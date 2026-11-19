@@ -20,10 +20,6 @@ permissions:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
-  # IAM role assumed via OIDC. Prefer an environment-scoped role if provided,
-  # otherwise fall back to a single deploy role. Configured as a repo/org
-  # variable (not a long-lived secret).
-  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
 
 jobs:
   # -------------------------------------------------------------------------
@@ -82,6 +78,9 @@ jobs:
     name: Update Web App service stack
     runs-on: ubuntu-latest
     needs: validate-payload
+    # Bind to the GitHub Environment named by the payload so environment-scoped
+    # variables (AWS_DEPLOY_ROLE_ARN) and protection rules apply.
+    environment: ${{ needs.validate-payload.outputs.environment }}
     timeout-minutes: 30
     env:
       ENVIRONMENT: ${{ needs.validate-payload.outputs.environment }}
@@ -95,7 +94,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       # Requirements 10.1, 10.2: update ONLY templates/04-ecs-service.yml for

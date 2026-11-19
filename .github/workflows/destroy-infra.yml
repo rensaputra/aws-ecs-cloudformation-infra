@@ -51,7 +51,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       # Helper used by every delete step: deletes the stack if it exists and
@@ -171,8 +171,31 @@ jobs:
             --query "Stacks[0].StackStatus" \
             --output text 2>/dev/null || echo "DOES_NOT_EXIST")
 
+          LOG_GROUP="/vpc/${ENVIRONMENT}-flow-logs"
+
+          # Idempotently delete the VPC flow-log group. The Flow Logs service
+          # holds logs:CreateLogGroup and can re-create this group during
+          # teardown, after CloudFormation has already deleted it. Such a group
+          # is no longer tracked by CloudFormation and, because the template
+          # sets an explicit LogGroupName, it collides on the next deploy
+          # ("already exists"). Deleting it here keeps teardown clean whether or
+          # not the VPC stack existed. A missing group is not an error.
+          cleanup_log_group() {
+            echo "Cleaning up flow-log group '${LOG_GROUP}' (if present)..."
+            DELETE_ERR=$(aws logs delete-log-group \
+              --log-group-name "${LOG_GROUP}" 2>&1) \
+              && { echo "Flow-log group '${LOG_GROUP}' deleted."; return 0; }
+            if printf '%s' "${DELETE_ERR}" | grep -q "ResourceNotFoundException"; then
+              echo "Flow-log group '${LOG_GROUP}' already absent — nothing to clean up."
+            else
+              echo "::error::Failed to delete flow-log group '${LOG_GROUP}': ${DELETE_ERR}"
+              exit 1
+            fi
+          }
+
           if [ "${STATUS}" = "DOES_NOT_EXIST" ]; then
-            echo "Stack '${STACK}' does not exist — skipping."
+            echo "Stack '${STACK}' does not exist — skipping stack delete."
+            cleanup_log_group
             exit 0
           fi
 
@@ -181,3 +204,5 @@ jobs:
           aws cloudformation wait stack-delete-complete --stack-name "${STACK}" \
           || { echo "::error::Deletion failed or timed out for stack '${STACK}'"; exit 1; }
           echo "Stack '${STACK}' deleted."
+
+          cleanup_log_group
