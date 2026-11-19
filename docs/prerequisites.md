@@ -1,64 +1,47 @@
 # Deployment Prerequisites
 
-Two workflows handle deployments:
+Three workflows handle deployments, and all three bind to a GitHub Environment
+(`dev` or `prod`), so they read environment-scoped variables:
 
-- **`deploy-infra.yml`** — manually triggered (`workflow_dispatch`); deploys layers 1–4. Binds to a GitHub Environment, so it reads environment-scoped secrets and variables.
-- **`deploy-dispatch.yml`** — event-triggered (`repository_dispatch`); deploys the ECS service stack (layer 5). Does **not** bind to a GitHub Environment, so it reads from repository-level variables only.
+- **`deploy-infra.yml`** — manually triggered (`workflow_dispatch`); deploys layers 1–4. Binds to the chosen environment.
+- **`destroy-infra.yml`** — manually triggered (`workflow_dispatch`); tears down all layers. Binds to the chosen environment.
+- **`deploy-dispatch.yml`** — event-triggered (`repository_dispatch`); deploys the ECS service stack (layer 5). Binds to the environment named in the dispatch payload.
 
-The setup below distinguishes which workflow needs each value.
+Because every job is bound to its environment, all AWS configuration lives in a
+single place: **environment variables**. There are no repository-level
+variables or environment secrets to configure.
 
 ---
 
-## 1. GitHub Environment variables (`deploy-infra.yml`)
+## 1. GitHub Environment variables
 
 Set these per environment under **Settings → Environments → (env) → Variables**.
+Configure them for both `dev` and `prod`.
 
 | Variable | Description | Example |
 |---|---|---|
 | `AWS_REGION` | AWS region where all stacks are deployed | `ap-southeast-2` |
+| `AWS_DEPLOY_ROLE_ARN` | ARN of the IAM role each workflow assumes via OIDC | `arn:aws:iam::<account-id>:role/<role-name>` |
 
 Steps:
 
 1. Go to **Settings → Environments**, select (or create) `dev`.
-2. Under **Environment variables**, add `AWS_REGION`.
-3. Repeat for `prod` (can be a different region if needed).
+2. Under **Environment variables**, add `AWS_REGION` and `AWS_DEPLOY_ROLE_ARN`.
+3. Repeat for `prod` (a separate region and/or a separate deploy role per environment is recommended).
+
+> **Why a variable, not a secret:** the role ARN is an identifier, not a
+> credential. OIDC federation means no long-lived keys are stored in GitHub, so
+> there is nothing sensitive to hide. Keeping it as a variable also makes it
+> visible for debugging.
 
 ---
 
-## 2. GitHub Repository variables (`deploy-dispatch.yml`)
-
-`deploy-dispatch.yml` triggers on `repository_dispatch` events and has no
-`environment:` binding, so environment-scoped values are never injected. It
-reads these from repository-level variables instead.
-
-Set these under **Settings → Variables → Actions → Repository variables**.
-
-| Variable | Description | Example |
-|---|---|---|
-| `AWS_REGION` | Same region as the environment variable above | `ap-southeast-2` |
-| `AWS_DEPLOY_ROLE_ARN` | ARN of the IAM role to assume for the dispatch workflow | `arn:aws:iam::<account-id>:role/<role-name>` |
-
-> **Note:** `deploy-infra.yml` reads `AWS_DEPLOY_ROLE_ARN` from an environment
-> *secret* (section 3 below). `deploy-dispatch.yml` reads it from a repository
-> *variable*. Both must be configured — they are separate GitHub settings.
-
----
-
-## 3. GitHub Environment secrets (`deploy-infra.yml`)
-
-Set these per environment under **Settings → Environments → (env) → Secrets**.
-
-| Secret | Description |
-|---|---|
-| `AWS_DEPLOY_ROLE_ARN` | ARN of the IAM role the workflow assumes via OIDC |
-
----
-
-## 4. IAM deploy role
+## 2. IAM deploy role
 
 The deploy workflows authenticate to AWS via OIDC federation — no long-lived
 access keys are stored in GitHub. You create an IAM role in your AWS account
-and store its ARN in both locations described in sections 2 and 3.
+and store its ARN as the `AWS_DEPLOY_ROLE_ARN` environment variable described in
+section 1.
 
 ### How OIDC authentication works
 
@@ -254,19 +237,21 @@ the SSM fetch for the ALB certificate.
 ### Store the role ARN in GitHub
 
 1. Go to **Settings → Environments**, select the `dev` environment.
-2. Under **Environment secrets**, add `AWS_DEPLOY_ROLE_ARN`:
+2. Under **Environment variables**, add `AWS_DEPLOY_ROLE_ARN`:
    ```
    arn:aws:iam::<account-id>:role/<role-name>
    ```
 3. Repeat for `prod` (recommended to use a separate role per environment).
-4. Also add `AWS_DEPLOY_ROLE_ARN` as a repository variable (section 2) for `deploy-dispatch.yml`.
+
+All three deploy workflows read this one variable — there is nothing further to
+configure for `deploy-dispatch.yml`.
 
 ---
 
-## 5. ACM certificate
+## 3. ACM certificate
 
 The ALB stack (`02-alb`) requires an HTTPS certificate. The certificate ARN is
-stored in SSM (section 6) so it is never committed to the repository. The
+stored in SSM (section 4) so it is never committed to the repository. The
 certificate must be in the **same region** as the ALB.
 
 ### Option A: Request a new public certificate (recommended)
@@ -306,11 +291,11 @@ aws acm list-certificates --region <region>
 
 ---
 
-## 6. SSM parameters
+## 4. SSM parameters
 
 The `Deploy 02-alb` step fetches the certificate ARN from SSM at deploy time
 so it is never stored in the repository. Create the parameter after obtaining
-the ARN from section 5.
+the ARN from section 3.
 
 | Environment | SSM Parameter Path |
 |---|---|
@@ -327,7 +312,7 @@ aws ssm put-parameter \
 
 ---
 
-## 7. ECR repository
+## 5. ECR repository
 
 The ECS service stack (`04-ecs-service`) pulls a container image from ECR. The
 repository must exist before the service stack is deployed.
@@ -358,7 +343,7 @@ ID before any manual deployment that reads from the file directly:
 
 ---
 
-## 8. Application Auto Scaling service-linked role
+## 6. Application Auto Scaling service-linked role
 
 The ECS service stack creates an auto scaling target that references the
 `AWSServiceRoleForApplicationAutoScaling_ECSService` service-linked role. AWS
@@ -380,7 +365,7 @@ aws iam get-role \
 
 ---
 
-## 9. ALB access logs bucket (optional)
+## 7. ALB access logs bucket (optional)
 
 Both `parameters/dev/02-alb.json` and `parameters/prod/02-alb.json` leave
 `AccessLogsBucketName` empty, which disables ALB access logging. This is
@@ -447,7 +432,7 @@ aws s3api put-bucket-policy \
 
 ---
 
-## 10. CloudWatch log group encryption (optional)
+## 8. CloudWatch log group encryption (optional)
 
 The ECS service stack accepts an optional KMS CMK ARN via `LogGroupKmsKeyId`
 in `parameters/<env>/04-ecs-service.json`. Leaving it empty (the default) uses
