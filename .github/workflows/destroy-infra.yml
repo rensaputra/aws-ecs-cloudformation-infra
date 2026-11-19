@@ -20,6 +20,11 @@ on:
         options:
           - dev
           - prod
+      service_name:
+        description: Name of the ECS service (used to derive the target group name).
+        required: true
+        type: string
+        default: web-app
 
 # OIDC federation requires write access to the id-token; contents:read is kept
 # for consistency even though no templates are checked out at destroy time.
@@ -37,6 +42,7 @@ concurrency:
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   ENVIRONMENT: ${{ inputs.environment }}
+  SERVICE_NAME: ${{ inputs.service_name }}
 
 jobs:
   destroy:
@@ -69,6 +75,31 @@ jobs:
         run: |
           set -euo pipefail
           STACK="${ENVIRONMENT}-ecs-service"
+          TG_NAME="${ENVIRONMENT}-${SERVICE_NAME}-tg"
+
+          # Idempotently delete the target group. CloudFormation marks the stack
+          # DELETE_COMPLETE before the ELB namespace releases the name, so the
+          # next deploy-dispatch would fail with AlreadyExists. A missing target
+          # group is not an error.
+          cleanup_target_group() {
+            echo "Cleaning up target group '${TG_NAME}' (if present)..."
+            DESCRIBE_OUT=$(aws elbv2 describe-target-groups \
+              --names "${TG_NAME}" \
+              --query "TargetGroups[0].TargetGroupArn" \
+              --output text 2>&1) \
+              || true
+            if printf '%s' "${DESCRIBE_OUT}" | grep -q "TargetGroupNotFound"; then
+              echo "Target group '${TG_NAME}' already absent — nothing to clean up."
+              return 0
+            fi
+            TG_ARN="${DESCRIBE_OUT}"
+            if [ -z "${TG_ARN}" ] || [ "${TG_ARN}" = "None" ]; then
+              echo "Target group '${TG_NAME}' already absent — nothing to clean up."
+              return 0
+            fi
+            aws elbv2 delete-target-group --target-group-arn "${TG_ARN}"
+            echo "Target group '${TG_NAME}' (${TG_ARN}) deleted."
+          }
 
           STATUS=$(aws cloudformation describe-stacks \
             --stack-name "${STACK}" \
@@ -76,7 +107,8 @@ jobs:
             --output text 2>/dev/null || echo "DOES_NOT_EXIST")
 
           if [ "${STATUS}" = "DOES_NOT_EXIST" ]; then
-            echo "Stack '${STACK}' does not exist — skipping."
+            echo "Stack '${STACK}' does not exist — skipping stack delete."
+            cleanup_target_group
             exit 0
           fi
 
@@ -85,6 +117,8 @@ jobs:
           aws cloudformation wait stack-delete-complete --stack-name "${STACK}" \
           || { echo "::error::Deletion failed or timed out for stack '${STACK}'"; exit 1; }
           echo "Stack '${STACK}' deleted."
+
+          cleanup_target_group
 
       # ---------------------------------------------------------------------
       # Layer 4: ECS Cluster (03-ecs-cluster)
